@@ -1,14 +1,122 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Expense Categorizer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .examples {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        .examples h3 {
+            margin-top: 0;
+            color: #666;
+        }
+        .example-item {
+            margin: 5px 0;
+            color: #777;
+        }
+        .alert {
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+        .alert-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
 </head>
 <body>
-    <h2>Enter a transaction description:</h2>
-    <form action="/predict" method="POST">
-        <input type="text" name="description" placeholder="e.g., Starbucks Coffee" required>
-        <br><br>
-        <input type="submit" value="Categorize">
-    </form>
+    <div class="container">
+        <h1>🏦 Smart Expense Categorizer</h1>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form action="/predict" method="POST">
+            <div class="form-group">
+                <label for="description">Transaction Description:</label>
+                <input type="text" 
+                       id="description" 
+                       name="description" 
+                       placeholder="e.g., Starbucks Coffee, Uber ride, Grocery shopping" 
+                       required
+                       maxlength="500">
+            </div>
+            
+            <button type="submit">📊 Categorize Expense</button>
+        </form>
+        
+        <div class="examples">
+            <h3>💡 Example Descriptions:</h3>
+            <div class="example-item">• "Starbucks Coffee" → Dining Out</div>
+            <div class="example-item">• "Uber ride to work" → Transport</div>
+            <div class="example-item">• "Electricity bill payment" → Utilities</div>
+            <div class="example-item">• "Grocery shopping at Walmart" → Groceries</div>
+            <div class="example-item">• "Netflix subscription" → Entertainment</div>
+        </div>
+    </div>
 </body>
 </html>
