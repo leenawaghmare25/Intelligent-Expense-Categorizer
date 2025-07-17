@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Smart Expense Categorizer{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>
+        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+    </h1>
+    <a href="{{ url_for('main.predict') }}" class="btn btn-primary">
+        <i class="fas fa-plus-circle me-2"></i>Add Expense
+    </a>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card text-center">
+            <div class="card-body">
+                <i class="fas fa-receipt fa-2x mb-2"></i>
+                <h3 class="mb-1">{{ stats.total_expenses }}</h3>
+                <p class="mb-0">Total Expenses</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card text-center">
+            <div class="card-body">
+                <i class="fas fa-tags fa-2x mb-2"></i>
+                <h3 class="mb-1">{{ stats.categories|length }}</h3>
+                <p class="mb-0">Categories</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card text-center">
+            <div class="card-body">
+                <i class="fas fa-calendar-day fa-2x mb-2"></i>
+                <h3 class="mb-1">{{ recent_expenses|length }}</h3>
+                <p class="mb-0">Recent</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card text-center">
+            <div class="card-body">
+                <i class="fas fa-robot fa-2x mb-2"></i>
+                <h3 class="mb-1">AI</h3>
+                <p class="mb-0">Powered</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Expenses -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">
+                    <i class="fas fa-history me-2"></i>Recent Expenses
+                </h4>
+                <a href="{{ url_for('main.expenses') }}" class="btn btn-sm btn-outline-primary">
+                    View All
+                </a>
+            </div>
+            <div class="card-body">
+                {% if recent_expenses %}
+                    <div class="list-group list-group-flush">
+                        {% for expense in recent_expenses %}
+                            <div class="list-group-item expense-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">{{ expense.description[:50] }}{% if expense.description|length > 50 %}...{% endif %}</h6>
+                                        <p class="mb-1">
+                                            <span class="badge bg-primary">{{ expense.predicted_category }}</span>
+                                            {% if expense.amount %}
+                                                <span class="text-muted ms-2">${{ "%.2f"|format(expense.amount) }}</span>
+                                            {% endif %}
+                                        </p>
+                                        <small class="text-muted">{{ expense.created_at.strftime('%B %d, %Y at %I:%M %p') }}</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <div class="confidence-bar mb-1" style="width: 60px;">
+                                            <div class="progress" style="height: 8px;">
+                                                <div class="progress-bar 
+                                                    {% if expense.confidence_score >= 0.8 %}bg-success
+                                                    {% elif expense.confidence_score >= 0.6 %}bg-warning
+                                                    {% else %}bg-danger{% endif %}" 
+                                                    style="width: {{ (expense.confidence_score * 100)|round }}%">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <small class="text-muted">{{ (expense.confidence_score * 100)|round }}%</small>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-receipt fa-3x mb-3"></i>
+                        <p>No expenses yet. <a href="{{ url_for('main.predict') }}">Add your first expense</a>!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Category Distribution -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>Categories
+                </h4>
+            </div>
+            <div class="card-body">
+                {% if stats.categories %}
+                    {% for category in stats.categories[:5] %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold">{{ category.category }}</span>
+                                <span class="badge bg-secondary">{{ category.count }}</span>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-primary" 
+                                     style="width: {{ (category.count / stats.total_expenses * 100)|round }}%">
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                    {% if stats.categories|length > 5 %}
+                        <div class="text-center">
+                            <a href="{{ url_for('auth.profile') }}" class="btn btn-sm btn-outline-primary">
+                                View All Categories
+                            </a>
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-chart-pie fa-3x mb-3"></i>
+                        <p>No categories yet</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

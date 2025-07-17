@@ -1,6 +1,8 @@
-from flask import Flask, render_template, request, jsonify, flash, redirect, url_for
+"""Main Flask application with user authentication and expense tracking."""
+
+from flask import Flask, render_template
+from flask_login import LoginManager
 import os
-import joblib
 import sys
 import logging
 from datetime import datetime
@@ -8,11 +10,18 @@ from datetime import datetime
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import Config
+from PYTHON.models import db, User
+from PYTHON.auth import auth_bp
+from PYTHON.routes import main_bp
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
 )
 
 def create_app():
@@ -20,112 +29,65 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # Load model and vectorizer
-    try:
-        app.model = joblib.load(Config.MODEL_PATH)
-        app.vectorizer = joblib.load(Config.VECTORIZER_PATH)
-        logging.info("Model and vectorizer loaded successfully")
-    except Exception as e:
-        logging.error(f"Error loading model: {str(e)}")
-        app.model = None
-        app.vectorizer = None
+    # Initialize extensions
+    db.init_app(app)
     
+    # Initialize Flask-Login
+    login_manager = LoginManager()
+    login_manager.init_app(app)
+    login_manager.login_view = 'auth.login'
+    login_manager.login_message = 'Please log in to access this page.'
+    login_manager.login_message_category = 'info'
+    
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(user_id)
+    
+    # Register blueprints
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(main_bp)
+    
+    # Create database tables
+    with app.app_context():
+        try:
+            db.create_all()
+            logging.info("Database tables created successfully")
+        except Exception as e:
+            logging.error(f"Error creating database tables: {str(e)}")
+    
+    # Error handlers
+    @app.errorhandler(404)
+    def not_found(error):
+        """404 error handler."""
+        return render_template("error.html", 
+                             error="Page not found", 
+                             error_code=404), 404
+    
+    @app.errorhandler(500)
+    def internal_error(error):
+        """500 error handler."""
+        db.session.rollback()
+        logging.error(f"Internal server error: {str(error)}")
+        return render_template("error.html", 
+                             error="Internal server error", 
+                             error_code=500), 500
+    
+    @app.errorhandler(403)
+    def forbidden(error):
+        """403 error handler."""
+        return render_template("error.html", 
+                             error="Access forbidden", 
+                             error_code=403), 403
+    
+    # Context processors
+    @app.context_processor
+    def inject_now():
+        return {'now': datetime.utcnow()}
+    
+    logging.info("Flask application created successfully")
     return app
 
 app = create_app()
-
-@app.route("/")
-def home():
-    """Home page route."""
-    return render_template("index.html")
-
-@app.route("/predict", methods=["POST"])
-def predict():
-    """Prediction route."""
-    try:
-        if not app.model or not app.vectorizer:
-            flash("Model not loaded. Please train the model first.", "error")
-            return redirect(url_for('home'))
-        
-        description = request.form.get("description", "").strip()
-        
-        if not description:
-            flash("Please enter a description.", "error")
-            return redirect(url_for('home'))
-        
-        # Preprocess the input
-        description_processed = description.lower()
-        
-        # Transform and predict
-        description_transformed = app.vectorizer.transform([description_processed])
-        prediction = app.model.predict(description_transformed)[0]
-        confidence = app.model.predict_proba(description_transformed)[0].max()
-        
-        # Log the prediction
-        logging.info(f"Prediction made: '{description}' -> {prediction} (confidence: {confidence:.2f})")
-        
-        return render_template("result.html", 
-                             description=description,
-                             prediction=prediction,
-                             confidence=confidence)
-        
-    except Exception as e:
-        logging.error(f"Error in prediction: {str(e)}")
-        flash("An error occurred during prediction. Please try again.", "error")
-        return redirect(url_for('home'))
-
-@app.route("/api/predict", methods=["POST"])
-def api_predict():
-    """API endpoint for prediction."""
-    try:
-        if not app.model or not app.vectorizer:
-            return jsonify({"error": "Model not loaded"}), 500
-        
-        data = request.get_json()
-        if not data or 'description' not in data:
-            return jsonify({"error": "Missing description"}), 400
-        
-        description = data['description'].strip()
-        if not description:
-            return jsonify({"error": "Empty description"}), 400
-        
-        # Preprocess and predict
-        description_processed = description.lower()
-        description_transformed = app.vectorizer.transform([description_processed])
-        prediction = app.model.predict(description_transformed)[0]
-        confidence = app.model.predict_proba(description_transformed)[0].max()
-        
-        return jsonify({
-            "prediction": prediction,
-            "confidence": float(confidence),
-            "timestamp": datetime.now().isoformat()
-        })
-        
-    except Exception as e:
-        logging.error(f"Error in API prediction: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
-
-@app.route("/health")
-def health_check():
-    """Health check endpoint."""
-    status = {
-        "status": "healthy",
-        "model_loaded": app.model is not None,
-        "vectorizer_loaded": app.vectorizer is not None,
-        "timestamp": datetime.now().isoformat()
-    }
-    return jsonify(status)
-
-@app.errorhandler(404)
-def not_found(error):
-    """404 error handler."""
-    return render_template("error.html", error="Page not found"), 404
-
-@app.errorhandler(500)
-def internal_error(error):
-    """500 error handler."""
-    logging.error(f"Internal server error: {str(error)}")
-    return render_template("error.html", error="Internal server error"), 500
 
 if __name__ == "__main__":
     app.run(debug=Config.DEBUG, host='0.0.0.0', port=5000)

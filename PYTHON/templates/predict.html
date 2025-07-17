@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Add Expense - Smart Expense Categorizer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="mb-0">
+                    <i class="fas fa-plus-circle me-2"></i>Add New Expense
+                </h3>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.description.label(class="form-label") }}
+                        {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else "")) }}
+                        {% if form.description.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.description.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">
+                            Describe your expense transaction (e.g., "Starbucks Coffee", "Uber ride to work")
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        {{ form.amount.label(class="form-label") }}
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            {{ form.amount(class="form-control" + (" is-invalid" if form.amount.errors else "")) }}
+                        </div>
+                        {% if form.amount.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.amount.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text">
+                            Optional: Enter the expense amount for better tracking
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-robot me-2"></i>Categorize with AI
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Examples Card -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-lightbulb me-2"></i>Example Descriptions
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-primary">Dining & Food</h6>
+                        <ul class="list-unstyled mb-3">
+                            <li class="mb-1">• "Starbucks Coffee"</li>
+                            <li class="mb-1">• "McDonald's lunch"</li>
+                            <li class="mb-1">• "Pizza delivery"</li>
+                        </ul>
+                        
+                        <h6 class="text-success">Transportation</h6>
+                        <ul class="list-unstyled mb-3">
+                            <li class="mb-1">• "Uber ride to work"</li>
+                            <li class="mb-1">• "Gas station fill-up"</li>
+                            <li class="mb-1">• "Metro card refill"</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-warning">Utilities & Bills</h6>
+                        <ul class="list-unstyled mb-3">
+                            <li class="mb-1">• "Electricity bill payment"</li>
+                            <li class="mb-1">• "Internet service"</li>
+                            <li class="mb-1">• "Water bill"</li>
+                        </ul>
+                        
+                        <h6 class="text-info">Shopping</h6>
+                        <ul class="list-unstyled mb-3">
+                            <li class="mb-1">• "Amazon purchase"</li>
+                            <li class="mb-1">• "Walmart groceries"</li>
+                            <li class="mb-1">• "Target shopping"</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

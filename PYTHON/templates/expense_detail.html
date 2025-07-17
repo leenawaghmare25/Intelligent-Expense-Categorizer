@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Expense Details - Smart Expense Categorizer{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>
+                <i class="fas fa-receipt me-2"></i>Expense Details
+            </h1>
+            <a href="{{ url_for('main.expenses') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to History
+            </a>
+        </div>
+        
+        <!-- Main Expense Info -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>Transaction Information
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-8">
+                        <h5 class="mb-3">{{ expense.description }}</h5>
+                        <div class="mb-2">
+                            <strong>Predicted Category:</strong>
+                            <span class="badge bg-primary ms-2">{{ expense.predicted_category }}</span>
+                        </div>
+                        {% if expense.amount %}
+                            <div class="mb-2">
+                                <strong>Amount:</strong> ${{ "%.2f"|format(expense.amount) }}
+                            </div>
+                        {% endif %}
+                        <div class="mb-2">
+                            <strong>Date Added:</strong> {{ expense.created_at.strftime('%B %d, %Y at %I:%M %p') }}
+                        </div>
+                        {% if expense.updated_at != expense.created_at %}
+                            <div class="mb-2">
+                                <strong>Last Updated:</strong> {{ expense.updated_at.strftime('%B %d, %Y at %I:%M %p') }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-4 text-center">
+                        <div class="mb-3">
+                            <h6>Confidence Score</h6>
+                            <div class="progress mx-auto mb-2" style="width: 120px; height: 20px;">
+                                <div class="progress-bar 
+                                    {% if expense.confidence_score >= 0.8 %}bg-success
+                                    {% elif expense.confidence_score >= 0.6 %}bg-warning
+                                    {% else %}bg-danger{% endif %}" 
+                                    style="width: {{ (expense.confidence_score * 100)|round }}%">
+                                </div>
+                            </div>
+                            <strong>{{ (expense.confidence_score * 100)|round }}%</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Model Predictions -->
+        {% if expense.model_predictions %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-robot me-2"></i>AI Model Breakdown
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for model_name, prediction_info in expense.model_predictions.items() %}
+                            <div class="col-md-4 mb-3">
+                                <div class="card h-100">
+                                    <div class="card-body text-center">
+                                        <h6 class="card-title text-capitalize">
+                                            {% if model_name == 'naive_bayes' %}
+                                                <i class="fas fa-brain me-1"></i>Naive Bayes
+                                            {% elif model_name == 'svm' %}
+                                                <i class="fas fa-vector-square me-1"></i>SVM
+                                            {% elif model_name == 'keyword' %}
+                                                <i class="fas fa-key me-1"></i>Keyword
+                                            {% endif %}
+                                        </h6>
+                                        <p class="card-text">
+                                            <span class="badge bg-secondary">{{ prediction_info.prediction }}</span>
+                                        </p>
+                                        <div class="progress mb-2" style="height: 8px;">
+                                            <div class="progress-bar bg-info" 
+                                                 style="width: {{ (prediction_info.confidence * 100)|round }}%">
+                                            </div>
+                                        </div>
+                                        <small class="text-muted">{{ (prediction_info.confidence * 100)|round }}% confidence</small>
+                                        
+                                        <!-- Top probabilities -->
+                                        {% if prediction_info.probabilities %}
+                                            <div class="mt-2">
+                                                <small class="text-muted d-block">Top predictions:</small>
+                                                {% for category, prob in (prediction_info.probabilities.items() | list | sort(attribute='1', reverse=true))[:3] %}
+                                                    <div class="d-flex justify-content-between">
+                                                        <small>{{ category }}</small>
+                                                        <small>{{ (prob * 100)|round }}%</small>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+        
+        <!-- User Feedback -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-thumbs-up me-2"></i>Your Feedback
+                </h4>
+            </div>
+            <div class="card-body">
+                {% if expense.user_feedback or expense.is_correct is not none %}
+                    <div class="alert alert-info">
+                        {% if expense.is_correct == True %}
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            You marked this prediction as <strong>correct</strong>.
+                        {% elif expense.is_correct == False %}
+                            <i class="fas fa-times-circle text-danger me-2"></i>
+                            You marked this prediction as <strong>incorrect</strong>.
+                        {% endif %}
+                        
+                        {% if expense.user_feedback %}
+                            <br>You indicated the correct category should be: <strong>{{ expense.user_feedback }}</strong>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                
+                <p class="mb-3">Help improve our AI by providing feedback on this prediction:</p>
+                <form method="POST" action="{{ url_for('main.expense_feedback', expense_id=expense.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Is this prediction correct?</label>
+                            <div class="btn-group d-block" role="group">
+                                <input type="radio" class="btn-check" name="is_prediction_correct" id="correct_yes" value="true" 
+                                       {% if expense.is_correct == True %}checked{% endif %}>
+                                <label class="btn btn-outline-success" for="correct_yes">
+                                    <i class="fas fa-thumbs-up me-1"></i>Yes
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="is_prediction_correct" id="correct_no" value="false"
+                                       {% if expense.is_correct == False %}checked{% endif %}>
+                                <label class="btn btn-outline-danger" for="correct_no">
+                                    <i class="fas fa-thumbs-down me-1"></i>No
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">If incorrect, what's the right category?</label>
+                            <select class="form-select" name="correct_category">
+                                <option value="">Select correct category...</option>
+                                <option value="Dining Out" {% if expense.user_feedback == 'Dining Out' %}selected{% endif %}>Dining Out</option>
+                                <option value="Transport" {% if expense.user_feedback == 'Transport' %}selected{% endif %}>Transport</option>
+                                <option value="Utilities" {% if expense.user_feedback == 'Utilities' %}selected{% endif %}>Utilities</option>
+                                <option value="Groceries" {% if expense.user_feedback == 'Groceries' %}selected{% endif %}>Groceries</option>
+                                <option value="Entertainment" {% if expense.user_feedback == 'Entertainment' %}selected{% endif %}>Entertainment</option>
+                                <option value="Shopping" {% if expense.user_feedback == 'Shopping' %}selected{% endif %}>Shopping</option>
+                                <option value="Healthcare" {% if expense.user_feedback == 'Healthcare' %}selected{% endif %}>Healthcare</option>
+                                <option value="Education" {% if expense.user_feedback == 'Education' %}selected{% endif %}>Education</option>
+                                <option value="Other" {% if expense.user_feedback == 'Other' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-2"></i>Submit Feedback
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+            <a href="{{ url_for('main.predict') }}" class="btn btn-primary me-md-2">
+                <i class="fas fa-plus-circle me-2"></i>Add Another Expense
+            </a>
+            <a href="{{ url_for('main.expenses') }}" class="btn btn-outline-primary">
+                <i class="fas fa-list me-2"></i>View All Expenses
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

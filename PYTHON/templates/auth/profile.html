@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - Smart Expense Categorizer{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-user-circle me-2"></i>Profile Information
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="text-center mb-3">
+                    <i class="fas fa-user-circle fa-5x text-muted"></i>
+                </div>
+                <table class="table table-borderless">
+                    <tr>
+                        <td><strong>Username:</strong></td>
+                        <td>{{ user.username }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Email:</strong></td>
+                        <td>{{ user.email }}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Member since:</strong></td>
+                        <td>{{ user.created_at.strftime('%B %d, %Y') }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>Expense Statistics
+                </h4>
+            </div>
+            <div class="card-body">
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="stats-card card text-center p-3">
+                            <h2 class="mb-1">{{ stats.total_expenses }}</h2>
+                            <p class="mb-0">Total Expenses</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="stats-card card text-center p-3">
+                            <h2 class="mb-1">{{ stats.categories|length }}</h2>
+                            <p class="mb-0">Categories Used</p>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if stats.categories %}
+                    <h5 class="mb-3">Category Breakdown</h5>
+                    <div class="row">
+                        {% for category in stats.categories %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <h6 class="card-title">{{ category.category }}</h6>
+                                        <p class="card-text">
+                                            <strong>{{ category.count }}</strong> expenses
+                                            {% if category.total > 0 %}
+                                                <br><small class="text-muted">Total: ${{ "%.2f"|format(category.total) }}</small>
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center text-muted">
+                        <i class="fas fa-chart-bar fa-3x mb-3"></i>
+                        <p>No expenses recorded yet. <a href="{{ url_for('main.predict') }}">Add your first expense</a>!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
