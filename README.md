@@ -25,6 +25,15 @@ An advanced AI-powered expense categorization system with user authentication, e
 - Category-wise statistics and analytics
 - Pagination for large datasets
 
+### 📸 Receipt Image Processing
+- **OCR Technology**: Extract text from receipt images using pytesseract
+- **Computer Vision**: Advanced image preprocessing with OpenCV
+- **Automatic Data Extraction**: Parse merchant names, items, prices, and totals
+- **Multi-format Support**: JPG, PNG, GIF, BMP, TIFF image formats
+- **Confidence Scoring**: OCR reliability assessment
+- **Batch Processing**: Create multiple expenses from single receipt
+- **Receipt History**: Track and manage receipt-based expenses
+
 ### 🎨 Modern Web Interface
 - Responsive Bootstrap-based design
 - Intuitive dashboard with expense analytics

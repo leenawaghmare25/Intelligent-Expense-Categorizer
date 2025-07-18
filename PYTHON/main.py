@@ -8,7 +8,8 @@ from sklearn.metrics import classification_report
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import Config
+from config import config
+Config = config['development']
 from PYTHON.ml_models import EnsembleExpenseClassifier
 
 # Configure logging
@@ -25,7 +26,7 @@ def load_and_preprocess_data():
     """Load and preprocess the data."""
     try:
         logging.info("Loading data...")
-        df = pd.read_csv(Config.DATA_PATH)
+        df = pd.read_csv(Config.DATA_FILE_PATH)
         logging.info(f"Data loaded successfully. Shape: {df.shape}")
         
         # Preprocess

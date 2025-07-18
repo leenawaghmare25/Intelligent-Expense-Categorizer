@@ -72,6 +72,11 @@ class Expense(db.Model):
     user_feedback = db.Column(db.String(100), nullable=True)  # User can correct the category
     is_correct = db.Column(db.Boolean, nullable=True)  # User can mark if prediction was correct
     
+    # Receipt processing fields
+    source = db.Column(db.String(50), nullable=True, default='manual')  # 'manual', 'receipt_upload', 'api'
+    metadata = db.Column(db.JSON, nullable=True)  # Store receipt data, OCR confidence, etc.
+    date = db.Column(db.DateTime, nullable=True)  # Expense date (can be different from created_at)
+    
     def to_dict(self):
         """Convert expense to dictionary."""
         return {
@@ -84,7 +89,10 @@ class Expense(db.Model):
             'user_feedback': self.user_feedback,
             'is_correct': self.is_correct,
             'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
+            'updated_at': self.updated_at.isoformat(),
+            'source': self.source,
+            'metadata': self.metadata,
+            'date': self.date.isoformat() if self.date else None
         }
     
     def __repr__(self):

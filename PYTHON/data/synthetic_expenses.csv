@@ -1,8 +1,91 @@
 Date,Description,Amount,Category
-2025-07-01,STARBUCKS COFFEE,5.50,Dining Out
-2025-07-01,Uber Ride to Work,15.00,Transport
-2025-07-01,Electricity Bill Payment,75.20,Utilities
-2025-07-01,Big Bazaar Groceries,22.30,Groceries
-2025-07-01,Zomato Order,11.40,Dining Out
-2025-07-01,Flipkart Shoes,1200.00,Shopping
-2025-07-01,August Salary,45000.00,Salary
+2024-01-01,Starbucks Coffee,5.50,Dining Out
+2024-01-02,McDonald's lunch,8.99,Dining Out
+2024-01-03,Pizza Hut dinner,15.75,Dining Out
+2024-01-04,Subway sandwich,7.25,Dining Out
+2024-01-05,KFC chicken,12.50,Dining Out
+2024-01-06,Restaurant bill,45.80,Dining Out
+2024-01-07,Coffee shop,4.25,Dining Out
+2024-01-08,Fast food,9.99,Dining Out
+2024-01-09,Taco Bell,11.40,Dining Out
+2024-01-10,Dominos pizza,18.99,Dining Out
+2024-01-11,Uber ride to work,12.50,Transport
+2024-01-12,Bus ticket,2.75,Transport
+2024-01-13,Taxi fare,18.00,Transport
+2024-01-14,Gas station,45.60,Transport
+2024-01-15,Metro card,25.00,Transport
+2024-01-16,Parking fee,8.00,Transport
+2024-01-17,Train ticket,35.50,Transport
+2024-01-18,Car rental,89.99,Transport
+2024-01-19,Lyft ride,14.25,Transport
+2024-01-20,Flight ticket,299.99,Transport
+2024-01-21,Electricity bill,89.45,Utilities
+2024-01-22,Water bill,34.20,Utilities
+2024-01-23,Internet service,59.99,Utilities
+2024-01-24,Phone bill,45.00,Utilities
+2024-01-25,Gas bill,67.80,Utilities
+2024-01-26,Cable TV,79.99,Utilities
+2024-01-27,Heating bill,125.50,Utilities
+2024-01-28,Trash service,25.00,Utilities
+2024-01-29,Sewer bill,28.75,Utilities
+2024-01-30,Security system,39.99,Utilities
+2024-02-01,Walmart groceries,67.23,Groceries
+2024-02-02,Target grocery,45.67,Groceries
+2024-02-03,Supermarket,78.90,Groceries
+2024-02-04,Fresh produce,23.45,Groceries
+2024-02-05,Meat market,56.78,Groceries
+2024-02-06,Bakery items,12.34,Groceries
+2024-02-07,Dairy products,18.90,Groceries
+2024-02-08,Frozen foods,34.56,Groceries
+2024-02-09,Organic store,89.12,Groceries
+2024-02-10,Costco bulk,156.78,Groceries
+2024-02-11,Amazon purchase,34.99,Shopping
+2024-02-12,Best Buy electronics,299.99,Shopping
+2024-02-13,Clothing store,89.50,Shopping
+2024-02-14,Online shopping,45.75,Shopping
+2024-02-15,Department store,67.80,Shopping
+2024-02-16,Bookstore,23.99,Shopping
+2024-02-17,Pharmacy,15.67,Shopping
+2024-02-18,Gift shop,28.50,Shopping
+2024-02-19,Home Depot,156.89,Shopping
+2024-02-20,Jewelry store,234.99,Shopping
+2024-02-21,Netflix subscription,15.99,Entertainment
+2024-02-22,Spotify premium,9.99,Entertainment
+2024-02-23,Movie theater,25.50,Entertainment
+2024-02-24,Concert tickets,89.00,Entertainment
+2024-02-25,Gaming subscription,12.99,Entertainment
+2024-02-26,Streaming service,8.99,Entertainment
+2024-02-27,Sports event,75.00,Entertainment
+2024-02-28,Amusement park,45.50,Entertainment
+2024-03-01,Video games,59.99,Entertainment
+2024-03-02,Theme park,125.00,Entertainment
+2024-03-03,Doctor visit,150.00,Healthcare
+2024-03-04,Pharmacy prescription,25.67,Healthcare
+2024-03-05,Dental checkup,89.99,Healthcare
+2024-03-06,Eye exam,120.00,Healthcare
+2024-03-07,Medical insurance,345.67,Healthcare
+2024-03-08,Hospital bill,567.89,Healthcare
+2024-03-09,Physical therapy,78.50,Healthcare
+2024-03-10,Lab tests,234.56,Healthcare
+2024-03-11,Specialist visit,200.00,Healthcare
+2024-03-12,Medical supplies,45.78,Healthcare
+2024-03-13,Online course,99.99,Education
+2024-03-14,Textbooks,156.78,Education
+2024-03-15,School supplies,34.50,Education
+2024-03-16,Tuition fee,1250.00,Education
+2024-03-17,Workshop registration,75.00,Education
+2024-03-18,Certification exam,200.00,Education
+2024-03-19,Library fine,5.00,Education
+2024-03-20,Educational software,89.99,Education
+2024-03-21,Training course,299.99,Education
+2024-03-22,Conference ticket,150.00,Education
+2024-03-23,Monthly salary,3500.00,Salary
+2024-03-24,Bonus payment,500.00,Salary
+2024-03-25,Freelance work,750.00,Salary
+2024-03-26,Part-time job,450.00,Salary
+2024-03-27,Commission,200.00,Salary
+2024-03-28,Overtime pay,300.00,Salary
+2024-03-29,Consulting fee,1200.00,Salary
+2024-03-30,Side hustle,150.00,Salary
+2024-03-31,Investment return,800.00,Salary
+2024-04-01,Contract work,950.00,Salary

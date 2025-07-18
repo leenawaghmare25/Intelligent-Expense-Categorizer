@@ -4,10 +4,15 @@ from flask import Blueprint, render_template, request, jsonify, flash, redirect,
 from flask_login import login_required, current_user
 from datetime import datetime
 import logging
+import os
+from werkzeug.utils import secure_filename
+from pathlib import Path
 
 from PYTHON.models import db, Expense
-from PYTHON.forms import ExpenseForm, FeedbackForm, ExpenseSearchForm
+from PYTHON.forms import ExpenseForm, FeedbackForm, ExpenseSearchForm, ReceiptUploadForm
 from PYTHON.ml_models import EnsembleExpenseClassifier
+from PYTHON.receipt_processor import ReceiptExpenseManager
+from PYTHON.utils import setup_logger
 
 main_bp = Blueprint('main', __name__)
 
@@ -277,3 +282,137 @@ def health_check():
         status["database_error"] = str(e)
     
     return jsonify(status)
+
+# Receipt Upload Routes
+@main_bp.route('/upload-receipt', methods=['GET', 'POST'])
+@login_required
+def upload_receipt():
+    """Handle receipt image upload and processing."""
+    logger = setup_logger(__name__)
+    form = ReceiptUploadForm()
+    
+    if form.validate_on_submit():
+        try:
+            # Get uploaded file
+            receipt_file = form.receipt_image.data
+            
+            # Create uploads directory if it doesn't exist
+            uploads_dir = Path(current_app.config.get('UPLOAD_FOLDER', 'uploads'))
+            uploads_dir.mkdir(exist_ok=True)
+            
+            # Save uploaded file securely
+            filename = secure_filename(receipt_file.filename)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            filename = f"{current_user.id}_{timestamp}_{filename}"
+            file_path = uploads_dir / filename
+            
+            receipt_file.save(str(file_path))
+            logger.info(f"Receipt image saved: {file_path}")
+            
+            # Process the receipt
+            receipt_manager = ReceiptExpenseManager()
+            category_override = form.category_override.data if form.category_override.data else None
+            
+            result = receipt_manager.process_receipt_image(
+                str(file_path), 
+                current_user.id, 
+                category_override
+            )
+            
+            # Clean up uploaded file (optional - you might want to keep it)
+            try:
+                os.remove(str(file_path))
+            except Exception as e:
+                logger.warning(f"Could not remove uploaded file: {e}")
+            
+            if result['success']:
+                flash(f"Receipt processed successfully! Created {result['expenses_created']} expense(s).", 'success')
+                return redirect(url_for('main.expenses'))
+            else:
+                flash('Receipt processing failed. Please try again.', 'error')
+                
+        except Exception as e:
+            logger.error(f"Error processing receipt: {str(e)}")
+            flash(f'Error processing receipt: {str(e)}', 'error')
+    
+    return render_template('upload_receipt.html', form=form)
+
+@main_bp.route('/api/upload-receipt', methods=['POST'])
+@login_required
+def api_upload_receipt():
+    """API endpoint for receipt upload."""
+    logger = setup_logger(__name__)
+    
+    try:
+        # Check if file is present
+        if 'receipt_image' not in request.files:
+            return jsonify({'error': 'No file uploaded'}), 400
+        
+        file = request.files['receipt_image']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        # Validate file type
+        allowed_extensions = {'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff'}
+        if not ('.' in file.filename and 
+                file.filename.rsplit('.', 1)[1].lower() in allowed_extensions):
+            return jsonify({'error': 'Invalid file type'}), 400
+        
+        # Create uploads directory
+        uploads_dir = Path(current_app.config.get('UPLOAD_FOLDER', 'uploads'))
+        uploads_dir.mkdir(exist_ok=True)
+        
+        # Save file
+        filename = secure_filename(file.filename)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{current_user.id}_{timestamp}_{filename}"
+        file_path = uploads_dir / filename
+        
+        file.save(str(file_path))
+        
+        # Process receipt
+        receipt_manager = ReceiptExpenseManager()
+        category_override = request.form.get('category_override')
+        
+        result = receipt_manager.process_receipt_image(
+            str(file_path), 
+            current_user.id, 
+            category_override if category_override else None
+        )
+        
+        # Clean up file
+        try:
+            os.remove(str(file_path))
+        except Exception as e:
+            logger.warning(f"Could not remove uploaded file: {e}")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error in API receipt upload: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/receipt-history')
+@login_required
+def receipt_history():
+    """Show expenses created from receipt uploads."""
+    try:
+        page = request.args.get('page', 1, type=int)
+        per_page = current_app.config.get('EXPENSES_PER_PAGE', 20)
+        
+        # Get expenses from receipt uploads
+        expenses_paginated = Expense.query.filter_by(
+            user_id=current_user.id,
+            source='receipt_upload'
+        ).order_by(Expense.created_at.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
+        
+        return render_template('receipt_history.html', 
+                             expenses=expenses_paginated.items,
+                             pagination=expenses_paginated)
+        
+    except Exception as e:
+        logging.error(f"Error in receipt history: {str(e)}")
+        flash('Error loading receipt history.', 'error')
+        return redirect(url_for('main.dashboard'))

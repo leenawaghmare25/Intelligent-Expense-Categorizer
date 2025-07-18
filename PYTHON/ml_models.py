@@ -187,12 +187,13 @@ class EnsembleExpenseClassifier:
         keyword_accuracy = accuracy_score(y_test, keyword_pred)
         logging.info(f"Keyword model accuracy: {keyword_accuracy:.4f}")
         
+        # Set trained flag before ensemble evaluation
+        self.is_trained = True
+        
         # Evaluate ensemble
         ensemble_pred = self.predict(X_test)
         ensemble_accuracy = accuracy_score(y_test, ensemble_pred)
         logging.info(f"Ensemble accuracy: {ensemble_accuracy:.4f}")
-        
-        self.is_trained = True
         return self
     
     def predict(self, X):
@@ -353,7 +354,7 @@ class EnsembleExpenseClassifier:
         # Save individual models
         joblib.dump(self.models['naive_bayes'], Config.NAIVE_BAYES_MODEL_PATH)
         joblib.dump(self.models['svm'], Config.SVM_MODEL_PATH)
-        joblib.dump(self.models['keyword'], Config.KEYWORD_MODEL_PATH)
+        joblib.dump(self.models['keyword'], Config.KEYWORD_RULES_PATH)
         
         # Save vectorizers
         joblib.dump(self.vectorizers, Config.VECTORIZER_PATH)
@@ -374,7 +375,7 @@ class EnsembleExpenseClassifier:
             # Load individual models
             self.models['naive_bayes'] = joblib.load(Config.NAIVE_BAYES_MODEL_PATH)
             self.models['svm'] = joblib.load(Config.SVM_MODEL_PATH)
-            self.models['keyword'] = joblib.load(Config.KEYWORD_MODEL_PATH)
+            self.models['keyword'] = joblib.load(Config.KEYWORD_RULES_PATH)
             
             # Load vectorizers
             self.vectorizers = joblib.load(Config.VECTORIZER_PATH)

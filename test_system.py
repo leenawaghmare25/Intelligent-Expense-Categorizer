@@ -83,7 +83,8 @@ def test_database():
         app = create_app()
         with app.app_context():
             # Test database connection
-            db.session.execute('SELECT 1')
+            from sqlalchemy import text
+            db.session.execute(text('SELECT 1'))
             
             # Test user query
             user_count = User.query.count()

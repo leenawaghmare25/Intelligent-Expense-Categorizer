@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Receipt - Smart Expense Categorizer{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-receipt me-2"></i>Upload Receipt
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>How it works:</strong> Upload a clear photo of your receipt and our AI will automatically extract the items, amounts, and categorize your expenses.
+                    </div>
+
+                    <form method="POST" enctype="multipart/form-data" id="receiptForm">
+                        {{ form.hidden_tag() }}
+                        
+                        <!-- File Upload -->
+                        <div class="mb-4">
+                            {{ form.receipt_image.label(class="form-label fw-bold") }}
+                            {{ form.receipt_image(class="form-control", accept="image/*", id="receiptImage") }}
+                            {% if form.receipt_image.description %}
+                                <div class="form-text">{{ form.receipt_image.description }}</div>
+                            {% endif %}
+                            {% if form.receipt_image.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.receipt_image.errors %}
+                                        <small>{{ error }}</small><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Image Preview -->
+                        <div class="mb-4" id="imagePreview" style="display: none;">
+                            <label class="form-label fw-bold">Preview:</label>
+                            <div class="text-center">
+                                <img id="previewImg" src="" alt="Receipt Preview" class="img-fluid rounded border" style="max-height: 300px;">
+                            </div>
+                        </div>
+
+                        <!-- Category Override -->
+                        <div class="mb-4">
+                            {{ form.category_override.label(class="form-label fw-bold") }}
+                            {{ form.category_override(class="form-select") }}
+                            {% if form.category_override.description %}
+                                <div class="form-text">{{ form.category_override.description }}</div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Notes -->
+                        <div class="mb-4">
+                            {{ form.notes.label(class="form-label fw-bold") }}
+                            {{ form.notes(class="form-control") }}
+                            {% if form.notes.description %}
+                                <div class="form-text">{{ form.notes.description }}</div>
+                            {% endif %}
+                            {% if form.notes.errors %}
+                                <div class="text-danger mt-1">
+                                    {% for error in form.notes.errors %}
+                                        <small>{{ error }}</small><br>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Submit Button -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                                <i class="fas fa-cloud-upload-alt me-2"></i>Process Receipt
+                            </button>
+                            <a href="{{ url_for('main.expenses') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Expenses
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Processing Status -->
+            <div class="card mt-4" id="processingStatus" style="display: none;">
+                <div class="card-body text-center">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
+                    <h5>Processing Receipt...</h5>
+                    <p class="text-muted">Please wait while we extract and categorize your expenses. This may take a few moments.</p>
+                </div>
+            </div>
+
+            <!-- Tips Card -->
+            <div class="card mt-4">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>Tips for Better Results
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>Ensure the receipt is well-lit and clearly visible</li>
+                        <li>Avoid shadows or glare on the receipt</li>
+                        <li>Make sure all text is readable in the image</li>
+                        <li>Crop the image to focus on the receipt content</li>
+                        <li>Supported formats: JPG, PNG, GIF, BMP, TIFF</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const receiptImage = document.getElementById('receiptImage');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+    const form = document.getElementById('receiptForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const processingStatus = document.getElementById('processingStatus');
+
+    // Image preview functionality
+    receiptImage.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                imagePreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        } else {
+            imagePreview.style.display = 'none';
+        }
+    });
+
+    // Form submission handling
+    form.addEventListener('submit', function(e) {
+        const file = receiptImage.files[0];
+        if (!file) {
+            e.preventDefault();
+            alert('Please select a receipt image to upload.');
+            return;
+        }
+
+        // Show processing status
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+        processingStatus.style.display = 'block';
+        
+        // Scroll to processing status
+        processingStatus.scrollIntoView({ behavior: 'smooth' });
+    });
+
+    // File size validation
+    receiptImage.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            if (file.size > maxSize) {
+                alert('File size must be less than 10MB. Please choose a smaller image.');
+                e.target.value = '';
+                imagePreview.style.display = 'none';
+                return;
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

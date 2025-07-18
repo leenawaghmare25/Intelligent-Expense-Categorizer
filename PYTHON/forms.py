@@ -1,6 +1,7 @@
 """Forms for the expense tracker application."""
 
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed, FileRequired
 from wtforms import StringField, PasswordField, TextAreaField, DecimalField, SelectField, BooleanField
 from wtforms.validators import DataRequired, Email, Length, EqualTo, Optional, NumberRange
 from wtforms.widgets import TextArea
@@ -82,3 +83,40 @@ class ExpenseSearchForm(FlaskForm):
         Optional(),
         NumberRange(min=0, message='Amount must be positive')
     ], places=2)
+
+class ReceiptUploadForm(FlaskForm):
+    """Form for uploading receipt images."""
+    
+    receipt_image = FileField('Receipt Image', validators=[
+        FileRequired(message='Please select a receipt image'),
+        FileAllowed(['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff'], 
+                   message='Only image files are allowed (JPG, PNG, GIF, BMP, TIFF)')
+    ])
+    
+    category_override = SelectField('Category Override (Optional)', validators=[
+        Optional()
+    ], choices=[
+        ('', 'Auto-detect category'),
+        ('Dining Out', 'Dining Out'),
+        ('Transport', 'Transport'),
+        ('Utilities', 'Utilities'),
+        ('Groceries', 'Groceries'),
+        ('Entertainment', 'Entertainment'),
+        ('Shopping', 'Shopping'),
+        ('Healthcare', 'Healthcare'),
+        ('Education', 'Education'),
+        ('Salary', 'Salary'),
+        ('Other', 'Other')
+    ])
+    
+    notes = TextAreaField('Additional Notes', validators=[
+        Optional(),
+        Length(max=500, message='Notes must be less than 500 characters')
+    ], render_kw={'rows': 3, 'placeholder': 'Optional notes about this receipt...'})
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Set default help text
+        self.receipt_image.description = 'Upload a clear image of your receipt. Supported formats: JPG, PNG, GIF, BMP, TIFF'
+        self.category_override.description = 'Leave blank to automatically detect the category using AI'
+        self.notes.description = 'Any additional information about this receipt'

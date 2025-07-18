@@ -23,6 +23,7 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
 # PyInstaller
 *.manifest
@@ -102,18 +103,42 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
-# IDE
+# Project specific
+*.db
+*.sqlite
+*.sqlite3
+expense_tracker.db
+logs/
+PYTHON/models/*.joblib
+PYTHON/models/*.json
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
-# OS
+# OS specific
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Project specific
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Training artifacts
 training.log
-*.pkl
-model/
+init_app.log
+app.log
