@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from PYTHON.app import create_app
 from PYTHON.models import db, User, Expense
-from config import config
+from project_config import config
 
 class TestModels(unittest.TestCase):
     """Test database models."""

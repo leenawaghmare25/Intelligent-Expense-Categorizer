@@ -18,7 +18,7 @@ def test_imports():
         from PYTHON.app import create_app
         from PYTHON.models import db, User, Expense
         from PYTHON.ml_models import EnsembleExpenseClassifier
-        from config import Config
+        from project_config import Config
         print("✅ All imports successful")
         return True
     except Exception as e:

@@ -74,7 +74,7 @@ class Expense(db.Model):
     
     # Receipt processing fields
     source = db.Column(db.String(50), nullable=True, default='manual')  # 'manual', 'receipt_upload', 'api'
-    metadata = db.Column(db.JSON, nullable=True)  # Store receipt data, OCR confidence, etc.
+    expense_metadata = db.Column(db.JSON, nullable=True)  # Store receipt data, OCR confidence, etc.
     date = db.Column(db.DateTime, nullable=True)  # Expense date (can be different from created_at)
     
     def to_dict(self):
@@ -91,7 +91,7 @@ class Expense(db.Model):
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
             'source': self.source,
-            'metadata': self.metadata,
+            'expense_metadata': self.expense_metadata,
             'date': self.date.isoformat() if self.date else None
         }
     

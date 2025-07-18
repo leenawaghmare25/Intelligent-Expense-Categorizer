@@ -506,7 +506,7 @@ class ReceiptExpenseManager:
                         predicted_category=category_override,  # Will be set by ML model if None
                         confidence_score=receipt_data.confidence_score,
                         source='receipt_upload',
-                        metadata=expense_data['receipt_data']
+                        expense_metadata=expense_data['receipt_data']
                     )
                     
                     expenses.append(expense)
@@ -536,7 +536,7 @@ class ReceiptExpenseManager:
                 predicted_category=category_override,
                 confidence_score=receipt_data.confidence_score,
                 source='receipt_upload',
-                metadata=expense_data['receipt_data']
+                expense_metadata=expense_data['receipt_data']
             )
             
             expenses.append(expense)
@@ -589,7 +589,7 @@ class ReceiptExpenseManager:
             'predicted_category': expense.predicted_category,
             'confidence_score': expense.confidence_score,
             'source': expense.source,
-            'metadata': expense.metadata
+            'expense_metadata': expense.expense_metadata
         }
 
 # Convenience function for easy usage

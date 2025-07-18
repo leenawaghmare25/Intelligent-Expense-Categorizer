@@ -16,7 +16,7 @@ from PYTHON.app import create_app
 from PYTHON.models import db, User, Expense
 from PYTHON.receipt_processor import ReceiptImageProcessor, ReceiptExpenseManager, ReceiptData, ReceiptItem
 from PYTHON.exceptions import ValidationError
-from config import config
+from project_config import config
 
 class TestReceiptProcessor(unittest.TestCase):
     """Test receipt image processing functionality."""
@@ -262,7 +262,7 @@ class TestReceiptProcessor(unittest.TestCase):
         
         for expense in expenses:
             self.assertEqual(expense.source, 'receipt_upload')
-            self.assertIsNotNone(expense.metadata)
+            self.assertIsNotNone(expense.expense_metadata)
             self.assertEqual(expense.user_id, self.user.id)
     
     def test_invalid_user_id(self):

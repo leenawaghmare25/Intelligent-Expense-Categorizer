@@ -3,6 +3,7 @@
 import os
 import sys
 import logging
+from datetime import datetime
 from logging.handlers import RotatingFileHandler
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
@@ -10,7 +11,7 @@ from flask_login import LoginManager
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import config
+from project_config import config
 from PYTHON.models import db, User
 from PYTHON.auth import auth_bp
 from PYTHON.routes import main_bp
@@ -45,6 +46,9 @@ def create_app(config_name=None):
     
     # Add security headers
     add_security_headers(app)
+    
+    # Register context processors
+    register_context_processors(app)
     
     # Create database tables
     with app.app_context():
@@ -95,8 +99,8 @@ def init_extensions(app):
     @login_manager.user_loader
     def load_user(user_id):
         try:
-            return User.query.get(int(user_id))
-        except (TypeError, ValueError):
+            return User.query.get(user_id)
+        except Exception:
             return None
 
 def register_blueprints(app):
@@ -154,6 +158,14 @@ def add_security_headers(app):
         response.headers['X-XSS-Protection'] = '1; mode=block'
         
         return response
+
+def register_context_processors(app):
+    """Register template context processors."""
+    
+    @app.context_processor
+    def inject_now():
+        """Make current datetime available to all templates."""
+        return {'now': datetime.now()}
 
 if __name__ == '__main__':
     app = create_app()

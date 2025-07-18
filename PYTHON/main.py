@@ -8,7 +8,7 @@ from sklearn.metrics import classification_report
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import config
+from project_config import config
 Config = config['development']
 from PYTHON.ml_models import EnsembleExpenseClassifier
 

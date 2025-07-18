@@ -187,8 +187,8 @@ def demonstrate_receipt_processing():
                     print(f"   Amount: ${expense['amount']:.2f}")
                     print(f"   Category: {expense['predicted_category']}")
                     print(f"   Confidence: {expense['confidence_score']:.1%}")
-                    if expense.get('metadata'):
-                        metadata = expense['metadata']
+                    if expense.get('expense_metadata'):
+                        metadata = expense['expense_metadata']
                         if metadata.get('item_name'):
                             print(f"   Item: {metadata['item_name']}")
                     print()
