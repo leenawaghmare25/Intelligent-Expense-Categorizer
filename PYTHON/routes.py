@@ -194,6 +194,68 @@ def expense_feedback(expense_id):
     
     return redirect(url_for('main.expense_detail', expense_id=expense_id))
 
+@main_bp.route('/expense/<expense_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_expense(expense_id):
+    """Edit an existing expense."""
+    expense = Expense.query.filter_by(id=expense_id, user_id=current_user.id).first_or_404()
+    
+    form = ExpenseForm()
+    
+    if form.validate_on_submit():
+        try:
+            # Update expense details
+            expense.description = form.description.data.strip()
+            expense.amount = form.amount.data
+            expense.updated_at = datetime.utcnow()
+            
+            # Re-predict category if description changed
+            model = load_ensemble_model()
+            if model:
+                detailed_prediction = model.get_detailed_prediction(expense.description)
+                expense.predicted_category = detailed_prediction['ensemble_prediction']
+                expense.confidence_score = detailed_prediction['ensemble_confidence']
+                expense.model_predictions = detailed_prediction['individual_models']
+            
+            db.session.commit()
+            flash('Expense updated successfully!', 'success')
+            logging.info(f"Expense {expense_id} updated by user {current_user.username}")
+            
+            return redirect(url_for('main.expense_detail', expense_id=expense_id))
+            
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error updating expense {expense_id}: {str(e)}")
+            flash('Error updating expense. Please try again.', 'error')
+    
+    # Pre-populate form with existing data
+    if request.method == 'GET':
+        form.description.data = expense.description
+        form.amount.data = expense.amount
+    
+    return render_template('edit_expense.html', form=form, expense=expense)
+
+@main_bp.route('/expense/<expense_id>/delete', methods=['POST'])
+@login_required
+def delete_expense(expense_id):
+    """Delete an existing expense."""
+    expense = Expense.query.filter_by(id=expense_id, user_id=current_user.id).first_or_404()
+    
+    try:
+        description = expense.description  # Store for logging
+        db.session.delete(expense)
+        db.session.commit()
+        
+        flash('Expense deleted successfully!', 'success')
+        logging.info(f"Expense {expense_id} '{description}' deleted by user {current_user.username}")
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Error deleting expense {expense_id}: {str(e)}")
+        flash('Error deleting expense. Please try again.', 'error')
+    
+    return redirect(url_for('main.expenses'))
+
 @main_bp.route('/api/predict', methods=['POST'])
 @login_required
 def api_predict():

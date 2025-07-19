@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Expense - Smart Expense Categorizer{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>Edit Expense
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Navigation -->
+                    <div class="mb-3">
+                        <a href="{{ url_for('main.expense_detail', expense_id=expense.id) }}" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-arrow-left me-1"></i>Back to Details
+                        </a>
+                    </div>
+
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.description.label(class="form-label") }}
+                            {{ form.description(class="form-control" + (" is-invalid" if form.description.errors else "")) }}
+                            {% if form.description.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.description.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Describe your transaction clearly for better categorization.
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.amount.label(class="form-label") }}
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                {{ form.amount(class="form-control" + (" is-invalid" if form.amount.errors else "")) }}
+                            </div>
+                            {% if form.amount.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {% for error in form.amount.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                            <div class="form-text">
+                                Enter the transaction amount (optional).
+                            </div>
+                        </div>
+
+                        <!-- Original Prediction Info -->
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle me-1"></i>Original Prediction:</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Category:</strong> {{ expense.predicted_category or 'N/A' }}
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Confidence:</strong> 
+                                    {% if expense.confidence_score %}
+                                        {{ (expense.confidence_score * 100)|round }}%
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <small class="text-muted mt-1 d-block">
+                                The category will be re-predicted automatically when you save changes.
+                            </small>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <a href="{{ url_for('main.expense_detail', expense_id=expense.id) }}" 
+                               class="btn btn-outline-secondary">
+                                <i class="fas fa-times me-1"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Save Changes
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

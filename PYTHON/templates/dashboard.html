@@ -91,7 +91,19 @@
                                                 </div>
                                             </div>
                                         </div>
-                                        <small class="text-muted">{{ (expense.confidence_score * 100)|round }}%</small>
+                                        <div class="mb-1">
+                                            <small class="text-muted">{{ (expense.confidence_score * 100)|round }}%</small>
+                                        </div>
+                                        <div class="btn-group-sm" role="group">
+                                            <a href="{{ url_for('main.expense_detail', expense_id=expense.id) }}" 
+                                               class="btn btn-sm btn-outline-primary me-1" title="View Details">
+                                                <i class="fas fa-eye"></i>
+                                            </a>
+                                            <a href="{{ url_for('main.edit_expense', expense_id=expense.id) }}" 
+                                               class="btn btn-sm btn-outline-warning" title="Edit">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

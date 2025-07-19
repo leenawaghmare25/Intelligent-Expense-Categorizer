@@ -378,11 +378,36 @@ class ReceiptImageProcessor:
         """Extract individual items from receipt lines."""
         items = []
         
+        # Words to exclude from being treated as expense items
+        excluded_keywords = [
+            'total', 'subtotal', 'tax', 'change', 'cash', 'card', 'receipt', 
+            'date', 'time', 'thank you', 'welcome', 'store', 'location', 
+            'address', 'phone', 'tel', 'email', '@', 'www.', '.com', '.net', '.org',
+            'cashier', 'manager', 'server', 'register', 'transaction', 'auth',
+            'visa', 'mastercard', 'amex', 'discover', 'debit', 'credit',
+            'balance', 'tip', 'gratuity', 'service', 'fee', 'discount',
+            'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday',
+            'jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'
+        ]
+        
         # Look for lines that contain both text and prices
         for line in lines:
-            # Skip lines that are clearly headers, totals, etc.
-            if any(keyword in line.lower() for keyword in 
-                   ['total', 'subtotal', 'tax', 'change', 'cash', 'card', 'receipt']):
+            line_lower = line.lower()
+            
+            # Skip lines that are clearly headers, totals, dates, addresses etc.
+            if any(keyword in line_lower for keyword in excluded_keywords):
+                continue
+            
+            # Skip lines that are just numbers, dates, or very short
+            if re.match(r'^[\d\s\-/:\.]*$', line) or len(line.strip()) < 3:
+                continue
+            
+            # Skip lines that look like addresses (contain common address patterns)
+            if re.search(r'\b\d+\s+[a-z]+\s+(st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|way|lane|ln)\b', line_lower):
+                continue
+            
+            # Skip lines that look like phone numbers or emails
+            if re.search(r'\(\d{3}\)\s*\d{3}-\d{4}|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', line):
                 continue
             
             # Look for price patterns in the line
@@ -392,15 +417,24 @@ class ReceiptImageProcessor:
                 price_pattern = r'\$?\d+\.?\d{0,2}'
                 item_name = re.sub(price_pattern, '', line).strip()
                 
-                if len(item_name) > 2:  # Valid item name
+                # Additional validation for item names
+                if (len(item_name) > 2 and 
+                    not re.match(r'^[\d\s\-/:\.]*$', item_name) and  # Not just numbers/symbols
+                    not any(keyword in item_name.lower() for keyword in excluded_keywords)):
                     try:
                         price = Decimal(price_matches[-1])  # Take the last price (usually the total for that item)
-                        items.append(ReceiptItem(
-                            name=sanitize_input(item_name),
-                            total_price=price
-                        ))
+                        if price > 0:  # Only add items with positive prices
+                            items.append(ReceiptItem(
+                                name=sanitize_input(item_name),
+                                total_price=price
+                            ))
                     except InvalidOperation:
                         continue
+        
+        # If we have too many items (likely picking up noise), keep only the most expensive ones
+        if len(items) > 10:
+            items = sorted(items, key=lambda x: x.total_price or 0, reverse=True)[:10]
+            self.logger.warning(f"Filtered items to top 10 by price to reduce noise")
         
         return items
     
