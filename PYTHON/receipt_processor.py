@@ -10,6 +10,7 @@ import numpy as np
 import pytesseract
 import re
 import logging
+import os
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime
 from pathlib import Path
@@ -70,9 +71,26 @@ class ReceiptImageProcessor:
         """
         self.logger = setup_logger(f"{__name__}.{self.__class__.__name__}")
         
-        # Configure tesseract path if provided
+        # Configure tesseract path
         if tesseract_path:
             pytesseract.pytesseract.tesseract_cmd = tesseract_path
+        else:
+            # Try to auto-detect tesseract path on Windows
+            import platform
+            if platform.system() == 'Windows':
+                possible_paths = [
+                    r'C:\Program Files\Tesseract-OCR\tesseract.exe',
+                    r'C:\Program Files (x86)\Tesseract-OCR\tesseract.exe',
+                    r'C:\Users\{}\AppData\Local\Tesseract-OCR\tesseract.exe'.format(os.getenv('USERNAME', '')),
+                ]
+                
+                for path in possible_paths:
+                    if os.path.exists(path):
+                        pytesseract.pytesseract.tesseract_cmd = path
+                        self.logger.info(f"Found Tesseract at: {path}")
+                        break
+                else:
+                    self.logger.warning("Tesseract not found in common Windows locations. Please ensure it's in PATH or provide tesseract_path parameter.")
         
         # Regex patterns for data extraction
         self._init_patterns()
@@ -556,9 +574,9 @@ class ReceiptExpenseManager:
                         classifier = EnsembleExpenseClassifier()
                         classifier.load_models()
                         
-                        prediction = classifier.predict(expense.description)
-                        expense.predicted_category = prediction['category']
-                        expense.confidence_score = min(expense.confidence_score, prediction['confidence'])
+                        prediction = classifier.get_detailed_prediction(expense.description)
+                        expense.predicted_category = prediction['ensemble_prediction']
+                        expense.confidence_score = min(expense.confidence_score, prediction['ensemble_confidence'])
                         
                     except Exception as e:
                         self.logger.warning(f"Could not predict category: {str(e)}")
