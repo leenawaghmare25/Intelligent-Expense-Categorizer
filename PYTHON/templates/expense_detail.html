@@ -141,7 +141,7 @@
                 
                 <p class="mb-3">Help improve our AI by providing feedback on this prediction:</p>
                 <form method="POST" action="{{ url_for('main.expense_feedback', expense_id=expense.id) }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    {{ form.hidden_tag() }}
                     <div class="row">
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Is this prediction correct?</label>

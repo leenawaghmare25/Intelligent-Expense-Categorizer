@@ -8,6 +8,7 @@ from logging.handlers import RotatingFileHandler
 from flask import Flask, request, jsonify, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from flask_wtf.csrf import CSRFProtect
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -95,6 +96,10 @@ def init_extensions(app):
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
     login_manager.session_protection = 'strong'
+    
+    # Initialize CSRF Protection
+    csrf = CSRFProtect()
+    csrf.init_app(app)
     
     @login_manager.user_loader
     def load_user(user_id):

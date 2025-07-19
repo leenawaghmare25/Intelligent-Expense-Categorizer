@@ -155,7 +155,14 @@ def expenses():
 def expense_detail(expense_id):
     """Detailed view of a specific expense."""
     expense = Expense.query.filter_by(id=expense_id, user_id=current_user.id).first_or_404()
-    return render_template('expense_detail.html', expense=expense)
+    
+    # Create feedback form with populated categories
+    form = FeedbackForm()
+    model = load_ensemble_model()
+    if model and model.categories:
+        form.correct_category.choices = [(cat, cat) for cat in model.categories]
+    
+    return render_template('expense_detail.html', expense=expense, form=form)
 
 @main_bp.route('/expense/<expense_id>/feedback', methods=['POST'])
 @login_required
@@ -330,7 +337,7 @@ def upload_receipt():
                 return redirect(url_for('main.expenses'))
             else:
                 flash('Receipt processing failed. Please try again.', 'error')
-                
+                    
         except Exception as e:
             logger.error(f"Error processing receipt: {str(e)}")
             flash(f'Error processing receipt: {str(e)}', 'error')
