@@ -465,7 +465,19 @@ class ReceiptExpenseManager:
     def __init__(self):
         """Initialize the receipt expense manager."""
         self.logger = setup_logger(f"{__name__}.{self.__class__.__name__}")
-        self.processor = ReceiptImageProcessor()
+        # Use the best available processor for maximum accuracy
+        try:
+            from PYTHON.multi_model_receipt_processor import MultiModelReceiptProcessor
+            self.processor = MultiModelReceiptProcessor()
+            self.logger.info("Using multi-model receipt processor (highest accuracy)")
+        except ImportError:
+            try:
+                from PYTHON.improved_receipt_processor import ImprovedReceiptProcessor
+                self.processor = ImprovedReceiptProcessor()
+                self.logger.info("Using improved receipt processor")
+            except ImportError:
+                self.processor = ReceiptImageProcessor()
+                self.logger.info("Using standard receipt processor")
     
     def process_receipt_image(self, image_path: str, user_id: int, 
                             category_override: Optional[str] = None) -> Dict[str, Any]:
@@ -492,10 +504,16 @@ class ReceiptExpenseManager:
             if not user:
                 raise ValidationError(f"User with ID {user_id} not found")
             
-            # Process the image
-            preprocessed_image = self.processor.preprocess_image(image_path)
-            text, confidence = self.processor.extract_text(preprocessed_image)
-            receipt_data = self.processor.parse_receipt_data(text, confidence)
+            # Process the image using the appropriate processor
+            if hasattr(self.processor, 'process_receipt_image'):
+                # Using improved processor
+                receipt_data = self.processor.process_receipt_image(image_path)
+                confidence = receipt_data.confidence_score
+            else:
+                # Using standard processor
+                preprocessed_image = self.processor.preprocess_image(image_path)
+                text, confidence = self.processor.extract_text(preprocessed_image)
+                receipt_data = self.processor.parse_receipt_data(text, confidence)
             
             # Create expense records
             expenses = self._create_expenses_from_receipt(receipt_data, user_id, category_override)
