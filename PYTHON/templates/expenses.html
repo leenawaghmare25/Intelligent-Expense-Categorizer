@@ -3,6 +3,27 @@
 {% block title %}Expense History - Smart Expense Categorizer{% endblock %}
 
 {% block content %}
+<style>
+.expense-item.selected {
+    background-color: #e3f2fd !important;
+}
+
+.bulk-actions-bar {
+    transition: all 0.3s ease;
+}
+
+.expense-checkbox:checked + td {
+    background-color: #e3f2fd;
+}
+
+.table-hover tbody tr:hover {
+    background-color: #f8f9fa;
+}
+
+.expense-item.selected:hover {
+    background-color: #bbdefb !important;
+}
+</style>
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>
         <i class="fas fa-history me-2"></i>Expense History
@@ -57,17 +78,48 @@
 <!-- Expenses List -->
 {% if expenses.items %}
     <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
-                <i class="fas fa-list me-2"></i>Your Expenses
-            </h5>
-            <span class="badge bg-primary">{{ expenses.total }} total</span>
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Your Expenses
+                </h5>
+                <div class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="tooltip" 
+                            title="Keyboard Shortcuts: Ctrl+A (Select All), Ctrl+D (Delete Selected), Escape (Clear Selection)">
+                        <i class="fas fa-keyboard"></i>
+                    </button>
+                    <span class="badge bg-primary">{{ expenses.total }} total</span>
+                </div>
+            </div>
+            
+            <!-- Bulk Actions Bar -->
+            <div class="mt-3" id="bulkActionsBar" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                    <div>
+                        <span id="selectedCount">0</span> expense(s) selected
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectAllExpenses()">
+                            <i class="fas fa-check-square me-1"></i>Select All
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">
+                            <i class="fas fa-square me-1"></i>Clear Selection
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="showBulkDeleteModal()" id="bulkDeleteBtn" disabled>
+                            <i class="fas fa-trash me-1"></i>Delete Selected
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
                     <thead class="table-light">
                         <tr>
+                            <th width="40">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()" class="form-check-input">
+                            </th>
                             <th>Description</th>
                             <th>Category</th>
                             <th>Amount</th>
@@ -79,6 +131,10 @@
                     <tbody>
                         {% for expense in expenses.items %}
                             <tr class="expense-item">
+                                <td>
+                                    <input type="checkbox" class="form-check-input expense-checkbox" 
+                                           value="{{ expense.id }}" onchange="updateBulkActions()">
+                                </td>
                                 <td>
                                     <div class="fw-bold">{{ expense.description[:60] }}{% if expense.description|length > 60 %}...{% endif %}</div>
                                     {% if expense.user_feedback %}
@@ -239,7 +295,38 @@
     </div>
 </div>
 
+<!-- Bulk Delete Confirmation Modal -->
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-labelledby="bulkDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkDeleteModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2 text-warning"></i>Confirm Bulk Deletion
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Are you sure you want to delete the selected expenses?</strong></p>
+                <div class="alert alert-warning">
+                    <div><strong>Selected expenses:</strong> <span id="bulkDeleteCount">0</span></div>
+                    <div class="mt-2" id="bulkDeletePreview"></div>
+                </div>
+                <p class="text-danger"><strong>This action cannot be undone.</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-danger" onclick="confirmBulkDelete()" id="confirmBulkDeleteBtn">
+                    <i class="fas fa-trash me-1"></i>Delete <span id="confirmDeleteCount">0</span> Expense(s)
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+// Individual delete functionality
 function showDeleteModal(expenseId, description) {
     // Set the form action URL
     document.getElementById('deleteForm').action = '/expense/' + expenseId + '/delete';
@@ -250,5 +337,195 @@ function showDeleteModal(expenseId, description) {
     // Show the modal
     new bootstrap.Modal(document.getElementById('deleteModal')).show();
 }
+
+// Bulk delete functionality
+let selectedExpenses = new Set();
+
+function updateBulkActions() {
+    const checkboxes = document.querySelectorAll('.expense-checkbox:checked');
+    const bulkActionsBar = document.getElementById('bulkActionsBar');
+    const selectedCount = document.getElementById('selectedCount');
+    const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    
+    selectedExpenses.clear();
+    checkboxes.forEach(cb => selectedExpenses.add(parseInt(cb.value)));
+    
+    // Update visual feedback for selected rows
+    document.querySelectorAll('.expense-checkbox').forEach(cb => {
+        const row = cb.closest('tr');
+        if (cb.checked) {
+            row.classList.add('selected');
+        } else {
+            row.classList.remove('selected');
+        }
+    });
+    
+    const count = selectedExpenses.size;
+    selectedCount.textContent = count;
+    
+    if (count > 0) {
+        bulkActionsBar.style.display = 'block';
+        bulkDeleteBtn.disabled = false;
+    } else {
+        bulkActionsBar.style.display = 'none';
+        bulkDeleteBtn.disabled = true;
+    }
+    
+    // Update select all checkbox state
+    const totalCheckboxes = document.querySelectorAll('.expense-checkbox').length;
+    if (count === 0) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = false;
+    } else if (count === totalCheckboxes) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = true;
+    } else {
+        selectAllCheckbox.indeterminate = true;
+    }
+}
+
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const expenseCheckboxes = document.querySelectorAll('.expense-checkbox');
+    
+    expenseCheckboxes.forEach(cb => {
+        cb.checked = selectAllCheckbox.checked;
+    });
+    
+    updateBulkActions();
+}
+
+function selectAllExpenses() {
+    const expenseCheckboxes = document.querySelectorAll('.expense-checkbox');
+    expenseCheckboxes.forEach(cb => cb.checked = true);
+    document.getElementById('selectAllCheckbox').checked = true;
+    updateBulkActions();
+}
+
+function clearSelection() {
+    const expenseCheckboxes = document.querySelectorAll('.expense-checkbox');
+    expenseCheckboxes.forEach(cb => cb.checked = false);
+    document.getElementById('selectAllCheckbox').checked = false;
+    updateBulkActions();
+}
+
+function showBulkDeleteModal() {
+    if (selectedExpenses.size === 0) return;
+    
+    const bulkDeleteCount = document.getElementById('bulkDeleteCount');
+    const confirmDeleteCount = document.getElementById('confirmDeleteCount');
+    const bulkDeletePreview = document.getElementById('bulkDeletePreview');
+    
+    bulkDeleteCount.textContent = selectedExpenses.size;
+    confirmDeleteCount.textContent = selectedExpenses.size;
+    
+    // Show preview of selected expenses
+    const selectedRows = Array.from(selectedExpenses).map(id => {
+        const checkbox = document.querySelector(`.expense-checkbox[value="${id}"]`);
+        const row = checkbox.closest('tr');
+        const description = row.querySelector('td:nth-child(2) .fw-bold').textContent;
+        return description.length > 50 ? description.substring(0, 50) + '...' : description;
+    });
+    
+    bulkDeletePreview.innerHTML = selectedRows.slice(0, 5).map(desc => 
+        `<small class="d-block text-muted">• ${desc}</small>`
+    ).join('');
+    
+    if (selectedRows.length > 5) {
+        bulkDeletePreview.innerHTML += `<small class="d-block text-muted">... and ${selectedRows.length - 5} more</small>`;
+    }
+    
+    new bootstrap.Modal(document.getElementById('bulkDeleteModal')).show();
+}
+
+function confirmBulkDelete() {
+    if (selectedExpenses.size === 0) return;
+    
+    const confirmBtn = document.getElementById('confirmBulkDeleteBtn');
+    const originalText = confirmBtn.innerHTML;
+    
+    // Show loading state
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
+    
+    // Send delete request
+    fetch('/expenses/bulk-delete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            expense_ids: Array.from(selectedExpenses)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('bulkDeleteModal')).hide();
+            
+            // Show success message and reload page
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        } else {
+            throw new Error(data.error || 'Failed to delete expenses');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error deleting expenses: ' + error.message);
+    })
+    .finally(() => {
+        // Restore button state
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = originalText;
+    });
+}
+
+// Keyboard shortcuts for power users
+document.addEventListener('keydown', function(e) {
+    // Only activate shortcuts when not in input fields
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    // Ctrl+A or Cmd+A: Select all expenses
+    if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        e.preventDefault();
+        selectAllExpenses();
+    }
+    
+    // Ctrl+D or Cmd+D: Delete selected expenses
+    if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        if (selectedExpenses.size > 0) {
+            showBulkDeleteModal();
+        }
+    }
+    
+    // Escape: Clear selection
+    if (e.key === 'Escape') {
+        clearSelection();
+    }
+    
+    // Ctrl+Shift+A: Clear selection
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
+        e.preventDefault();
+        clearSelection();
+    }
+});
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateBulkActions();
+    
+    // Show keyboard shortcuts help
+    console.log('💡 Keyboard Shortcuts:');
+    console.log('   Ctrl+A: Select all expenses');
+    console.log('   Ctrl+D: Delete selected expenses');
+    console.log('   Escape: Clear selection');
+    console.log('   Ctrl+Shift+A: Clear selection');
+});
 </script>
 {% endblock %}
