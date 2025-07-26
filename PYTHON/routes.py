@@ -302,8 +302,20 @@ def bulk_delete_expenses():
             Expense.is_deleted == False
         ).all()
         
+        found_ids = [e.id for e in expenses]
+        missing_ids = [eid for eid in expense_ids if eid not in found_ids]
+        
         if len(expenses) != len(expense_ids):
-            return jsonify({'error': 'Some expenses not found or access denied'}), 403
+            logging.warning(f"Bulk delete validation failed - User {current_user.username}")
+            logging.warning(f"Requested IDs: {expense_ids}")
+            logging.warning(f"Found IDs: {found_ids}")
+            logging.warning(f"Missing IDs: {missing_ids}")
+            return jsonify({
+                'error': 'Some expenses not found or access denied',
+                'requested_count': len(expense_ids),
+                'found_count': len(expenses),
+                'missing_ids': missing_ids
+            }), 403
         
         # Soft delete expenses
         deleted_count = 0
@@ -694,10 +706,11 @@ def receipt_history():
         page = request.args.get('page', 1, type=int)
         per_page = current_app.config.get('EXPENSES_PER_PAGE', 20)
         
-        # Get expenses from receipt uploads
+        # Get expenses from receipt uploads (only non-deleted ones)
         expenses_paginated = Expense.query.filter_by(
             user_id=current_user.id,
-            source='receipt_upload'
+            source='receipt_upload',
+            is_deleted=False
         ).order_by(Expense.created_at.desc()).paginate(
             page=page, per_page=per_page, error_out=False
         )
@@ -708,5 +721,7 @@ def receipt_history():
         
     except Exception as e:
         logging.error(f"Error in receipt history: {str(e)}")
+        import traceback
+        logging.error(f"Traceback: {traceback.format_exc()}")
         flash('Error loading receipt history.', 'error')
         return redirect(url_for('main.dashboard'))

@@ -45,8 +45,8 @@
                                         </td>
                                         <td>
                                             <div class="fw-bold">{{ expense.description }}</div>
-                                            {% if expense.metadata and expense.metadata.get('item_name') %}
-                                                <small class="text-muted">Item: {{ expense.metadata.item_name }}</small>
+                                            {% if expense.expense_metadata and expense.expense_metadata.get('item_name') %}
+                                                <small class="text-muted">Item: {{ expense.expense_metadata.item_name }}</small>
                                             {% endif %}
                                         </td>
                                         <td>
@@ -70,20 +70,20 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            {% if expense.metadata %}
-                                                {% if expense.metadata.get('merchant') %}
+                                            {% if expense.expense_metadata %}
+                                                {% if expense.expense_metadata.get('merchant') %}
                                                     <div class="small">
-                                                        <strong>Merchant:</strong> {{ expense.metadata.merchant }}
+                                                        <strong>Merchant:</strong> {{ expense.expense_metadata.merchant }}
                                                     </div>
                                                 {% endif %}
-                                                {% if expense.metadata.get('receipt_number') %}
+                                                {% if expense.expense_metadata.get('receipt_number') %}
                                                     <div class="small text-muted">
-                                                        Receipt #{{ expense.metadata.receipt_number }}
+                                                        Receipt #{{ expense.expense_metadata.receipt_number }}
                                                     </div>
                                                 {% endif %}
-                                                {% if expense.metadata.get('confidence') %}
+                                                {% if expense.expense_metadata.get('confidence') %}
                                                     <div class="small text-muted">
-                                                        OCR: {{ "%.1f"|format(expense.metadata.confidence * 100) }}%
+                                                        OCR: {{ "%.1f"|format(expense.expense_metadata.confidence * 100) }}%
                                                     </div>
                                                 {% endif %}
                                             {% else %}
