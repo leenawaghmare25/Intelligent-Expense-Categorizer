@@ -5,10 +5,10 @@ import sys
 import logging
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf import CSRFProtect
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -32,6 +32,9 @@ def create_app(config_name=None):
     
     app = Flask(__name__)
     app.config.from_object(config[config_name])
+    
+    # Set secret key explicitly (required for CSRF)
+    app.secret_key = app.config.get('SECRET_KEY') or 'your-secret-key'  # Change this in production!
     
     # Configure logging
     configure_logging(app)
@@ -97,9 +100,8 @@ def init_extensions(app):
     login_manager.login_message_category = 'info'
     login_manager.session_protection = 'strong'
     
-    # Initialize CSRF Protection
-    csrf = CSRFProtect()
-    csrf.init_app(app)
+    # Initialize CSRF Protection (required for forms)
+    csrf = CSRFProtect(app)
     
     @login_manager.user_loader
     def load_user(user_id):
@@ -107,7 +109,15 @@ def init_extensions(app):
             return User.query.get(user_id)
         except Exception:
             return None
-
+    
+    # Quick session fix for development
+    @app.before_request
+    def fix_session():
+        from flask import session
+        if not session.get('_session_initialized'):
+            session['_session_initialized'] = True
+            session.permanent = True
+    
 def register_blueprints(app):
     """Register application blueprints."""
     app.register_blueprint(auth_bp)

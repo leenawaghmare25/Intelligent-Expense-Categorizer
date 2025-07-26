@@ -20,7 +20,7 @@ class User(UserMixin, db.Model):
     is_active = db.Column(db.Boolean, default=True)
     
     # Relationship with expenses
-    expenses = db.relationship('Expense', backref='user', lazy='dynamic', cascade='all, delete-orphan')
+    expenses = db.relationship('Expense', foreign_keys='Expense.user_id', backref='user', lazy='dynamic', cascade='all, delete-orphan')
     
     def set_password(self, password):
         """Set password hash."""
@@ -31,13 +31,13 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
     
     def get_expense_stats(self):
-        """Get user's expense statistics."""
-        total_expenses = self.expenses.count()
+        """Get user's expense statistics (only active expenses)."""
+        total_expenses = Expense.get_active_expenses(self.id).count()
         categories = db.session.query(
             Expense.predicted_category,
             db.func.count(Expense.id).label('count'),
             db.func.sum(Expense.amount).label('total')
-        ).filter_by(user_id=self.id).group_by(Expense.predicted_category).all()
+        ).filter_by(user_id=self.id, is_deleted=False).group_by(Expense.predicted_category).all()
         
         return {
             'total_expenses': total_expenses,
@@ -77,6 +77,36 @@ class Expense(db.Model):
     expense_metadata = db.Column(db.JSON, nullable=True)  # Store receipt data, OCR confidence, etc.
     date = db.Column(db.DateTime, nullable=True)  # Expense date (can be different from created_at)
     
+    # Soft delete fields
+    is_deleted = db.Column(db.Boolean, default=False, nullable=False, index=True)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+    deleted_by = db.Column(db.String(36), db.ForeignKey('users.id'), nullable=True)
+    
+    # Relationship for who deleted this expense
+    deleted_by_user = db.relationship('User', foreign_keys=[deleted_by])
+    
+    def soft_delete(self, user_id):
+        """Soft delete the expense."""
+        self.is_deleted = True
+        self.deleted_at = datetime.utcnow()
+        self.deleted_by = user_id
+    
+    def restore(self):
+        """Restore a soft-deleted expense."""
+        self.is_deleted = False
+        self.deleted_at = None
+        self.deleted_by = None
+    
+    @classmethod
+    def get_active_expenses(cls, user_id):
+        """Get all non-deleted expenses for a user."""
+        return cls.query.filter_by(user_id=user_id, is_deleted=False)
+    
+    @classmethod
+    def get_deleted_expenses(cls, user_id):
+        """Get all soft-deleted expenses for a user."""
+        return cls.query.filter_by(user_id=user_id, is_deleted=True)
+
     def to_dict(self):
         """Convert expense to dictionary."""
         return {
@@ -92,7 +122,9 @@ class Expense(db.Model):
             'updated_at': self.updated_at.isoformat(),
             'source': self.source,
             'expense_metadata': self.expense_metadata,
-            'date': self.date.isoformat() if self.date else None
+            'date': self.date.isoformat() if self.date else None,
+            'is_deleted': self.is_deleted,
+            'deleted_at': self.deleted_at.isoformat() if self.deleted_at else None
         }
     
     def __repr__(self):

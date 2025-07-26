@@ -2,9 +2,9 @@
 
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed, FileRequired
-from wtforms import StringField, PasswordField, TextAreaField, DecimalField, SelectField, BooleanField
+from wtforms import StringField, PasswordField, TextAreaField, DecimalField, SelectField, BooleanField, SelectMultipleField, HiddenField
 from wtforms.validators import DataRequired, Email, Length, EqualTo, Optional, NumberRange
-from wtforms.widgets import TextArea
+from wtforms.widgets import TextArea, CheckboxInput, ListWidget
 
 class LoginForm(FlaskForm):
     """Login form."""
@@ -118,5 +118,20 @@ class ReceiptUploadForm(FlaskForm):
         super().__init__(*args, **kwargs)
         # Set default help text
         self.receipt_image.description = 'Upload a clear image of your receipt. Supported formats: JPG, PNG, GIF, BMP, TIFF'
-        self.category_override.description = 'Leave blank to automatically detect the category using AI'
-        self.notes.description = 'Any additional information about this receipt'
+
+class BulkDeleteForm(FlaskForm):
+    """Form for bulk deletion of expenses."""
+    expense_ids = SelectMultipleField('Select Expenses', coerce=int, validators=[
+        DataRequired(message='Please select at least one expense to delete')
+    ])
+    
+    confirm_delete = BooleanField('I understand this action cannot be undone', validators=[
+        DataRequired(message='Please confirm you understand this action cannot be undone')
+    ])
+
+class DeleteConfirmationForm(FlaskForm):
+    """Form for confirming individual expense deletion."""
+    expense_id = HiddenField('Expense ID', validators=[DataRequired()])
+    confirm_delete = BooleanField('I understand this action cannot be undone', validators=[
+        DataRequired(message='Please confirm you understand this action cannot be undone')
+    ])

@@ -1,6 +1,6 @@
 """Authentication blueprint for user management."""
 
-from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app
+from flask import Blueprint, render_template, request, flash, redirect, url_for, current_app, session, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from urllib.parse import urlparse as url_parse
 import logging
@@ -10,6 +10,21 @@ from PYTHON.forms import LoginForm, RegisterForm
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
+@auth_bp.route('/csrf-debug')
+def csrf_debug():
+    """Debug route to check CSRF token generation."""
+    from flask_wtf.csrf import generate_csrf
+    try:
+        token = generate_csrf()
+        return jsonify({
+            'csrf_token': token,
+            'session_keys': list(session.keys()),
+            'has_session': bool(session),
+            'session_id': session.get('_id', 'No session ID')
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
     """User login route."""
@@ -17,6 +32,11 @@ def login():
         return redirect(url_for('main.dashboard'))
     
     form = LoginForm()
+    
+    if request.method == 'POST':
+        current_app.logger.info(f"Login POST request received. Form errors: {form.errors}")
+        current_app.logger.info(f"CSRF token in form: {'csrf_token' in request.form}")
+        current_app.logger.info(f"Session: {dict(request.session) if hasattr(request, 'session') else 'No session'}")
     
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
@@ -45,6 +65,10 @@ def register():
         return redirect(url_for('main.dashboard'))
     
     form = RegisterForm()
+    
+    if request.method == 'POST':
+        current_app.logger.info(f"Register POST request received. Form errors: {form.errors}")
+        current_app.logger.info(f"CSRF token in form: {'csrf_token' in request.form}")
     
     if form.validate_on_submit():
         # Check if username already exists

@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+
+{% block title %}Recently Deleted - Smart Expense Categorizer{% endblock %}
+
+{% block content %}
+<style>
+.deleted-item {
+    opacity: 0.7;
+    background-color: #fff3cd;
+}
+
+.deleted-item.selected {
+    background-color: #ffeaa7 !important;
+}
+
+.restore-actions-bar {
+    transition: all 0.3s ease;
+}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>
+        <i class="fas fa-trash-restore me-2"></i>Recently Deleted
+    </h1>
+    <div>
+        <a href="{{ url_for('main.expenses') }}" class="btn btn-outline-primary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Expenses
+        </a>
+    </div>
+</div>
+
+<!-- Info Alert -->
+<div class="alert alert-info">
+    <i class="fas fa-info-circle me-2"></i>
+    <strong>Note:</strong> Deleted expenses are kept for 30 days before being permanently removed. 
+    You can restore them anytime during this period.
+</div>
+
+<!-- Deleted Expenses List -->
+{% if deleted_expenses %}
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>Recently Deleted Expenses
+                </h5>
+                <span class="badge bg-warning">{{ deleted_expenses|length }} deleted</span>
+            </div>
+            
+            <!-- Bulk Actions Bar -->
+            <div class="mt-3" id="restoreActionsBar" style="display: none;">
+                <div class="d-flex justify-content-between align-items-center p-2 bg-light rounded">
+                    <div>
+                        <span id="selectedCount">0</span> expense(s) selected
+                    </div>
+                    <div class="btn-group">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="selectAllDeleted()">
+                            <i class="fas fa-check-square me-1"></i>Select All
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearSelection()">
+                            <i class="fas fa-square me-1"></i>Clear Selection
+                        </button>
+                        <button type="button" class="btn btn-sm btn-success" onclick="bulkRestore()" id="bulkRestoreBtn" disabled>
+                            <i class="fas fa-trash-restore me-1"></i>Restore Selected
+                        </button>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="showPermanentDeleteModal()" id="permanentDeleteBtn" disabled>
+                            <i class="fas fa-times me-1"></i>Delete Permanently
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="40">
+                                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()" class="form-check-input">
+                            </th>
+                            <th>Description</th>
+                            <th>Category</th>
+                            <th>Amount</th>
+                            <th>Deleted Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for expense in deleted_expenses %}
+                            <tr class="deleted-item">
+                                <td>
+                                    <input type="checkbox" class="form-check-input expense-checkbox" 
+                                           value="{{ expense.id }}" onchange="updateRestoreActions()">
+                                </td>
+                                <td>
+                                    <div class="fw-bold">{{ expense.description[:60] }}{% if expense.description|length > 60 %}...{% endif %}</div>
+                                    <small class="text-muted">
+                                        <i class="fas fa-trash me-1"></i>Deleted {{ expense.deleted_at.strftime('%m/%d/%Y at %I:%M %p') }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ expense.predicted_category }}</span>
+                                </td>
+                                <td>
+                                    {% if expense.amount %}
+                                        ${{ "%.2f"|format(expense.amount) }}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div>{{ expense.deleted_at.strftime('%m/%d/%Y') }}</div>
+                                    <small class="text-muted">{{ expense.deleted_at.strftime('%I:%M %p') }}</small>
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <form method="POST" action="{{ url_for('main.restore_expense', expense_id=expense.id) }}" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                                            <button type="submit" class="btn btn-sm btn-success" title="Restore">
+                                                <i class="fas fa-trash-restore"></i>
+                                            </button>
+                                        </form>
+                                        <button type="button" class="btn btn-sm btn-danger" 
+                                                title="Delete Permanently" onclick="showPermanentDeleteSingleModal('{{ expense.id }}', '{{ expense.description|e }}')">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+{% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-trash-restore fa-4x text-muted mb-4"></i>
+            <h4 class="text-muted mb-3">No recently deleted expenses</h4>
+            <p class="mb-3">You haven't deleted any expenses recently, or they have been permanently removed.</p>
+            <a href="{{ url_for('main.expenses') }}" class="btn btn-primary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Expenses
+            </a>
+        </div>
+    </div>
+{% endif %}
+
+<!-- Permanent Delete Confirmation Modal -->
+<div class="modal fade" id="permanentDeleteModal" tabindex="-1" aria-labelledby="permanentDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="permanentDeleteModalLabel">
+                    <i class="fas fa-exclamation-triangle me-2 text-danger"></i>Permanent Deletion Warning
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Are you sure you want to permanently delete the selected expenses?</strong></p>
+                <div class="alert alert-danger">
+                    <div><strong>Selected expenses:</strong> <span id="permanentDeleteCount">0</span></div>
+                    <div class="mt-2" id="permanentDeletePreview"></div>
+                </div>
+                <p class="text-danger"><strong>⚠️ This action CANNOT be undone! The expenses will be permanently removed from the database.</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i>Cancel
+                </button>
+                <button type="button" class="btn btn-danger" onclick="confirmPermanentDelete()" id="confirmPermanentDeleteBtn">
+                    <i class="fas fa-times me-1"></i>Delete Permanently
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Selection management
+let selectedExpenses = new Set();
+
+function updateRestoreActions() {
+    const checkboxes = document.querySelectorAll('.expense-checkbox:checked');
+    const restoreActionsBar = document.getElementById('restoreActionsBar');
+    const selectedCount = document.getElementById('selectedCount');
+    const bulkRestoreBtn = document.getElementById('bulkRestoreBtn');
+    const permanentDeleteBtn = document.getElementById('permanentDeleteBtn');
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    
+    selectedExpenses.clear();
+    checkboxes.forEach(cb => selectedExpenses.add(cb.value));
+    
+    // Update visual feedback for selected rows
+    document.querySelectorAll('.expense-checkbox').forEach(cb => {
+        const row = cb.closest('tr');
+        if (cb.checked) {
+            row.classList.add('selected');
+        } else {
+            row.classList.remove('selected');
+        }
+    });
+    
+    const count = selectedExpenses.size;
+    selectedCount.textContent = count;
+    
+    if (count > 0) {
+        restoreActionsBar.style.display = 'block';
+        bulkRestoreBtn.disabled = false;
+        permanentDeleteBtn.disabled = false;
+    } else {
+        restoreActionsBar.style.display = 'none';
+        bulkRestoreBtn.disabled = true;
+        permanentDeleteBtn.disabled = true;
+    }
+    
+    // Update select all checkbox state
+    const totalCheckboxes = document.querySelectorAll('.expense-checkbox').length;
+    if (count === 0) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = false;
+    } else if (count === totalCheckboxes) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = true;
+    } else {
+        selectAllCheckbox.indeterminate = true;
+    }
+}
+
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const expenseCheckboxes = document.querySelectorAll('.expense-checkbox');
+    
+    expenseCheckboxes.forEach(cb => {
+        cb.checked = selectAllCheckbox.checked;
+    });
+    
+    updateRestoreActions();
+}
+
+function selectAllDeleted() {
+    const expenseCheckboxes = document.querySelectorAll('.expense-checkbox');
+    expenseCheckboxes.forEach(cb => cb.checked = true);
+    document.getElementById('selectAllCheckbox').checked = true;
+    updateRestoreActions();
+}
+
+function clearSelection() {
+    const expenseCheckboxes = document.querySelectorAll('.expense-checkbox');
+    expenseCheckboxes.forEach(cb => cb.checked = false);
+    document.getElementById('selectAllCheckbox').checked = false;
+    updateRestoreActions();
+}
+
+function bulkRestore() {
+    if (selectedExpenses.size === 0) return;
+    
+    const confirmRestore = confirm(`Are you sure you want to restore ${selectedExpenses.size} expense(s)?`);
+    if (!confirmRestore) return;
+    
+    fetch('/expenses/bulk-restore', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            expense_ids: Array.from(selectedExpenses)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Error restoring expenses: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error restoring expenses: ' + error.message);
+    });
+}
+
+function showPermanentDeleteModal() {
+    if (selectedExpenses.size === 0) return;
+    
+    const permanentDeleteCount = document.getElementById('permanentDeleteCount');
+    const permanentDeletePreview = document.getElementById('permanentDeletePreview');
+    
+    permanentDeleteCount.textContent = selectedExpenses.size;
+    
+    // Show preview of selected expenses
+    const selectedRows = Array.from(selectedExpenses).map(id => {
+        const checkbox = document.querySelector(`.expense-checkbox[value="${id}"]`);
+        const row = checkbox.closest('tr');
+        const description = row.querySelector('td:nth-child(2) .fw-bold').textContent;
+        return description.length > 50 ? description.substring(0, 50) + '...' : description;
+    });
+    
+    permanentDeletePreview.innerHTML = selectedRows.slice(0, 5).map(desc => 
+        `<small class="d-block text-muted">• ${desc}</small>`
+    ).join('');
+    
+    if (selectedRows.length > 5) {
+        permanentDeletePreview.innerHTML += `<small class="d-block text-muted">... and ${selectedRows.length - 5} more</small>`;
+    }
+    
+    new bootstrap.Modal(document.getElementById('permanentDeleteModal')).show();
+}
+
+function confirmPermanentDelete() {
+    if (selectedExpenses.size === 0) return;
+    
+    const confirmBtn = document.getElementById('confirmPermanentDeleteBtn');
+    const originalText = confirmBtn.innerHTML;
+    
+    // Show loading state
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
+    
+    fetch('/expenses/permanent-delete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            expense_ids: Array.from(selectedExpenses)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('permanentDeleteModal')).hide();
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        } else {
+            throw new Error(data.error || 'Failed to permanently delete expenses');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error permanently deleting expenses: ' + error.message);
+    })
+    .finally(() => {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = originalText;
+    });
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateRestoreActions();
+});
+</script>
+{% endblock %}

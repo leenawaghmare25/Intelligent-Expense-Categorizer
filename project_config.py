@@ -62,12 +62,23 @@ class Config:
     MAX_EXPENSES_PER_PAGE = 100
     
     # Security
-    WTF_CSRF_ENABLED = True
-    WTF_CSRF_TIME_LIMIT = 3600  # 1 hour
-    SESSION_COOKIE_SECURE = not DEBUG  # HTTPS only in production
+    # Enhanced Session Configuration for CSRF
+    SESSION_TYPE = 'filesystem'
+    SESSION_PERMANENT = False
+    SESSION_USE_SIGNER = True
+    SESSION_KEY_PREFIX = 'expense_tracker:'
+    SESSION_COOKIE_NAME = 'expense_session'
+    SESSION_COOKIE_DOMAIN = None
+    SESSION_COOKIE_PATH = None
     SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SECURE = False  # Set to True in production with HTTPS
     SESSION_COOKIE_SAMESITE = 'Lax'
-    
+    # CSRF Configuration
+    WTF_CSRF_ENABLED = True  # Enable CSRF protection
+    WTF_CSRF_TIME_LIMIT = 3600  # 1 hour
+    WTF_CSRF_SSL_STRICT = False  # Allow HTTP in development
+    WTF_CSRF_CHECK_DEFAULT = True
+    WTF_CSRF_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
     # Session
     PERMANENT_SESSION_LIFETIME = 3600  # 1 hour
     
@@ -96,6 +107,8 @@ class DevelopmentConfig(Config):
     """Development configuration."""
     DEBUG = True
     TESTING = False
+    SESSION_COOKIE_SECURE = False  # Allow HTTP in development
+    WTF_CSRF_SSL_STRICT = False    # Don't require HTTPS for CSRF
 
 class TestingConfig(Config):
     """Testing configuration."""

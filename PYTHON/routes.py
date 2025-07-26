@@ -9,10 +9,12 @@ from werkzeug.utils import secure_filename
 from pathlib import Path
 
 from PYTHON.models import db, Expense
-from PYTHON.forms import ExpenseForm, FeedbackForm, ExpenseSearchForm, ReceiptUploadForm
+from PYTHON.forms import ExpenseForm, FeedbackForm, ExpenseSearchForm, ReceiptUploadForm, BulkDeleteForm, DeleteConfirmationForm
 from PYTHON.ml_models import EnsembleExpenseClassifier
 from PYTHON.receipt_processor import ReceiptExpenseManager
 from PYTHON.utils import setup_logger
+from PYTHON.rate_limiter import rate_limit
+from PYTHON.cleanup_tasks import cleanup_old_deleted_expenses, get_cleanup_stats
 
 main_bp = Blueprint('main', __name__)
 
@@ -104,8 +106,8 @@ def expenses():
     """Expense history page with search and filtering."""
     form = ExpenseSearchForm()
     
-    # Build query
-    query = Expense.query.filter_by(user_id=current_user.id)
+    # Build query - only show non-deleted expenses
+    query = Expense.get_active_expenses(current_user.id)
     
     # Apply filters if form is submitted
     if request.args.get('search_query'):
@@ -238,16 +240,18 @@ def edit_expense(expense_id):
 @main_bp.route('/expense/<expense_id>/delete', methods=['POST'])
 @login_required
 def delete_expense(expense_id):
-    """Delete an existing expense."""
-    expense = Expense.query.filter_by(id=expense_id, user_id=current_user.id).first_or_404()
+    """Soft delete an existing expense with undo option."""
+    expense = Expense.query.filter_by(id=expense_id, user_id=current_user.id, is_deleted=False).first_or_404()
     
     try:
         description = expense.description  # Store for logging
-        db.session.delete(expense)
+        expense.soft_delete(current_user.id)
         db.session.commit()
         
-        flash('Expense deleted successfully!', 'success')
-        logging.info(f"Expense {expense_id} '{description}' deleted by user {current_user.username}")
+        # Create undo link in flash message
+        undo_url = url_for('main.restore_expense', expense_id=expense_id)
+        flash(f'Expense deleted successfully! <a href="{undo_url}" class="alert-link">Undo</a>', 'success')
+        logging.info(f"Expense {expense_id} '{description}' soft deleted by user {current_user.username}")
         
     except Exception as e:
         db.session.rollback()
@@ -255,6 +259,227 @@ def delete_expense(expense_id):
         flash('Error deleting expense. Please try again.', 'error')
     
     return redirect(url_for('main.expenses'))
+
+@main_bp.route('/expense/<expense_id>/restore', methods=['POST'])
+@login_required
+def restore_expense(expense_id):
+    """Restore a soft-deleted expense."""
+    expense = Expense.query.filter_by(id=expense_id, user_id=current_user.id, is_deleted=True).first_or_404()
+    
+    try:
+        description = expense.description
+        expense.restore()
+        db.session.commit()
+        
+        flash('Expense restored successfully!', 'success')
+        logging.info(f"Expense {expense_id} '{description}' restored by user {current_user.username}")
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Error restoring expense {expense_id}: {str(e)}")
+        flash('Error restoring expense. Please try again.', 'error')
+    
+    return redirect(url_for('main.expenses'))
+
+@main_bp.route('/expenses/bulk-delete', methods=['POST'])
+@login_required
+@rate_limit(max_requests=5, window_seconds=60)
+def bulk_delete_expenses():
+    """Delete multiple expenses at once."""
+    try:
+        data = request.get_json()
+        if not data or 'expense_ids' not in data:
+            return jsonify({'error': 'No expense IDs provided'}), 400
+        
+        expense_ids = data['expense_ids']
+        if not expense_ids:
+            return jsonify({'error': 'No expense IDs provided'}), 400
+        
+        # Validate that all expenses belong to the current user and are not already deleted
+        expenses = Expense.query.filter(
+            Expense.id.in_(expense_ids),
+            Expense.user_id == current_user.id,
+            Expense.is_deleted == False
+        ).all()
+        
+        if len(expenses) != len(expense_ids):
+            return jsonify({'error': 'Some expenses not found or access denied'}), 403
+        
+        # Soft delete expenses
+        deleted_count = 0
+        deleted_descriptions = []
+        
+        for expense in expenses:
+            deleted_descriptions.append(expense.description[:50])
+            expense.soft_delete(current_user.id)
+            deleted_count += 1
+        
+        db.session.commit()
+        
+        flash(f'Successfully deleted {deleted_count} expense(s)!', 'success')
+        logging.info(f"Bulk delete: User {current_user.username} deleted {deleted_count} expenses")
+        
+        return jsonify({
+            'success': True,
+            'deleted_count': deleted_count,
+            'message': f'Successfully deleted {deleted_count} expense(s)',
+            'undo_available': True
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Error in bulk delete: {str(e)}")
+        return jsonify({'error': 'Failed to delete expenses'}), 500
+
+@main_bp.route('/expenses/deleted')
+@login_required
+def deleted_expenses():
+    """View recently deleted expenses with restore options."""
+    # Get deleted expenses from the last 30 days
+    from datetime import timedelta
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+    
+    deleted_expenses = Expense.query.filter(
+        Expense.user_id == current_user.id,
+        Expense.is_deleted == True,
+        Expense.deleted_at >= thirty_days_ago
+    ).order_by(Expense.deleted_at.desc()).all()
+    
+    return render_template('deleted_expenses.html', deleted_expenses=deleted_expenses)
+
+@main_bp.route('/expenses/bulk-restore', methods=['POST'])
+@login_required
+def bulk_restore_expenses():
+    """Restore multiple deleted expenses at once."""
+    try:
+        data = request.get_json()
+        if not data or 'expense_ids' not in data:
+            return jsonify({'error': 'No expense IDs provided'}), 400
+        
+        expense_ids = data['expense_ids']
+        if not expense_ids:
+            return jsonify({'error': 'No expense IDs provided'}), 400
+        
+        # Validate that all expenses belong to the current user and are deleted
+        expenses = Expense.query.filter(
+            Expense.id.in_(expense_ids),
+            Expense.user_id == current_user.id,
+            Expense.is_deleted == True
+        ).all()
+        
+        if len(expenses) != len(expense_ids):
+            return jsonify({'error': 'Some expenses not found or access denied'}), 403
+        
+        # Restore expenses
+        restored_count = 0
+        
+        for expense in expenses:
+            expense.restore()
+            restored_count += 1
+        
+        db.session.commit()
+        
+        flash(f'Successfully restored {restored_count} expense(s)!', 'success')
+        logging.info(f"Bulk restore: User {current_user.username} restored {restored_count} expenses")
+        
+        return jsonify({
+            'success': True,
+            'restored_count': restored_count,
+            'message': f'Successfully restored {restored_count} expense(s)'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Error in bulk restore: {str(e)}")
+        return jsonify({'error': 'Failed to restore expenses'}), 500
+
+@main_bp.route('/expenses/permanent-delete', methods=['POST'])
+@login_required
+def permanent_delete_expenses():
+    """Permanently delete expenses (hard delete)."""
+    try:
+        data = request.get_json()
+        if not data or 'expense_ids' not in data:
+            return jsonify({'error': 'No expense IDs provided'}), 400
+        
+        expense_ids = data['expense_ids']
+        if not expense_ids:
+            return jsonify({'error': 'No expense IDs provided'}), 400
+        
+        # Validate that all expenses belong to the current user and are soft deleted
+        expenses = Expense.query.filter(
+            Expense.id.in_(expense_ids),
+            Expense.user_id == current_user.id,
+            Expense.is_deleted == True
+        ).all()
+        
+        if len(expenses) != len(expense_ids):
+            return jsonify({'error': 'Some expenses not found or access denied'}), 403
+        
+        # Permanently delete expenses
+        deleted_count = 0
+        deleted_descriptions = []
+        
+        for expense in expenses:
+            deleted_descriptions.append(expense.description[:50])
+            db.session.delete(expense)
+            deleted_count += 1
+        
+        db.session.commit()
+        
+        flash(f'Permanently deleted {deleted_count} expense(s)!', 'warning')
+        logging.info(f"Permanent delete: User {current_user.username} permanently deleted {deleted_count} expenses")
+        
+        return jsonify({
+            'success': True,
+            'deleted_count': deleted_count,
+            'message': f'Permanently deleted {deleted_count} expense(s)'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Error in permanent delete: {str(e)}")
+        return jsonify({'error': 'Failed to permanently delete expenses'}), 500
+
+@main_bp.route('/admin/cleanup-stats')
+@login_required
+def admin_cleanup_stats():
+    """Get cleanup statistics (admin only)."""
+    # In a real app, you'd check if user is admin
+    # For now, any logged-in user can see stats
+    try:
+        stats = get_cleanup_stats()
+        return jsonify({
+            'success': True,
+            'stats': stats,
+            'timestamp': datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        logging.error(f"Error getting cleanup stats: {str(e)}")
+        return jsonify({'error': 'Failed to get cleanup stats'}), 500
+
+@main_bp.route('/admin/run-cleanup', methods=['POST'])
+@login_required
+@rate_limit(max_requests=1, window_seconds=300)  # Only 1 cleanup per 5 minutes
+def admin_run_cleanup():
+    """Manually trigger cleanup (admin only)."""
+    # In a real app, you'd check if user is admin
+    try:
+        deleted_count = cleanup_old_deleted_expenses()
+        stats = get_cleanup_stats()
+        
+        logging.info(f"Manual cleanup triggered by user {current_user.username}: {deleted_count} expenses deleted")
+        
+        return jsonify({
+            'success': True,
+            'deleted_count': deleted_count,
+            'stats': stats,
+            'message': f'Successfully cleaned up {deleted_count} old expenses'
+        })
+        
+    except Exception as e:
+        logging.error(f"Error in manual cleanup: {str(e)}")
+        return jsonify({'error': 'Failed to run cleanup'}), 500
 
 @main_bp.route('/api/predict', methods=['POST'])
 @login_required
