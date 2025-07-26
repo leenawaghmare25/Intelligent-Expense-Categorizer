@@ -349,15 +349,17 @@ function updateBulkActions() {
     const selectAllCheckbox = document.getElementById('selectAllCheckbox');
     
     selectedExpenses.clear();
-    checkboxes.forEach(cb => selectedExpenses.add(parseInt(cb.value)));
+    checkboxes.forEach(cb => selectedExpenses.add(cb.value));
     
     // Update visual feedback for selected rows
     document.querySelectorAll('.expense-checkbox').forEach(cb => {
         const row = cb.closest('tr');
-        if (cb.checked) {
-            row.classList.add('selected');
-        } else {
-            row.classList.remove('selected');
+        if (row) {
+            if (cb.checked) {
+                row.classList.add('selected');
+            } else {
+                row.classList.remove('selected');
+            }
         }
     });
     
@@ -417,16 +419,28 @@ function showBulkDeleteModal() {
     const confirmDeleteCount = document.getElementById('confirmDeleteCount');
     const bulkDeletePreview = document.getElementById('bulkDeletePreview');
     
+    if (!bulkDeleteCount || !confirmDeleteCount || !bulkDeletePreview) {
+        console.error('Required modal elements not found');
+        return;
+    }
+    
     bulkDeleteCount.textContent = selectedExpenses.size;
     confirmDeleteCount.textContent = selectedExpenses.size;
     
     // Show preview of selected expenses
     const selectedRows = Array.from(selectedExpenses).map(id => {
         const checkbox = document.querySelector(`.expense-checkbox[value="${id}"]`);
+        if (!checkbox) return 'Unknown expense';
+        
         const row = checkbox.closest('tr');
-        const description = row.querySelector('td:nth-child(2) .fw-bold').textContent;
+        if (!row) return 'Unknown expense';
+        
+        const descriptionElement = row.querySelector('td:nth-child(2) .fw-bold');
+        if (!descriptionElement) return 'Unknown expense';
+        
+        const description = descriptionElement.textContent;
         return description.length > 50 ? description.substring(0, 50) + '...' : description;
-    });
+    }).filter(desc => desc !== 'Unknown expense');
     
     bulkDeletePreview.innerHTML = selectedRows.slice(0, 5).map(desc => 
         `<small class="d-block text-muted">• ${desc}</small>`
@@ -449,19 +463,39 @@ function confirmBulkDelete() {
     confirmBtn.disabled = true;
     confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Deleting...';
     
+    // Get CSRF token from meta tag
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    
+    if (!csrfToken) {
+        console.error('CSRF token not found');
+        alert('Security token not found. Please refresh the page.');
+        return;
+    }
+    
+    const expenseIds = Array.from(selectedExpenses);
+    console.log('Deleting expenses:', expenseIds);
+    console.log('Expense IDs types:', expenseIds.map(id => typeof id));
+    
     // Send delete request
     fetch('/expenses/bulk-delete', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
+            'X-CSRFToken': csrfToken
         },
         body: JSON.stringify({
-            expense_ids: Array.from(selectedExpenses)
+            expense_ids: expenseIds
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
     .then(data => {
+        console.log('Response data:', data);
         if (data.success) {
             // Close modal
             bootstrap.Modal.getInstance(document.getElementById('bulkDeleteModal')).hide();
@@ -476,7 +510,14 @@ function confirmBulkDelete() {
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error deleting expenses: ' + error.message);
+        let errorMessage = 'Error deleting expenses: ' + error.message;
+        
+        // Check if it's a 403 error and provide more helpful message
+        if (error.message.includes('403')) {
+            errorMessage = 'Some expenses could not be deleted. They may have already been deleted or you may not have permission to delete them. Please refresh the page and try again.';
+        }
+        
+        alert(errorMessage);
     })
     .finally(() => {
         // Restore button state
